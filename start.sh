@@ -15,11 +15,10 @@ echo "[$(date)] Starte GrowMate Ressource-Management..." | tee -a $LOG_FILE
 # Self-Repair: Memory & CPU Check Funktion (Ohne Sudo!)
 check_resources_and_repair() {
     # Wenn RAM unter 50MB frei (Hardware Optimierung für RPi)
-    FREE_MEM=$(free -m | awk '/^Mem:/{print $4}')
-    if [ "$FREE_MEM" -lt 50 ]; then
+    FREE_MEM=$(free -m | grep -E "^(Mem|Speicher):" | awk '{print $4}')
+    if [[ "$FREE_MEM" =~ ^[0-9]+$ ]] && [ "$FREE_MEM" -lt 50 ]; then
         echo "[$(date)] WARNING: Kritisch wenig RAM ($FREE_MEM MB). Beende unwichtige User-Prozesse..." | tee -a $LOG_FILE
-        # Da wir kein Sudo haben (Zero-Root Prinzip), können wir nur User-Prozesse killen,
-        # die nicht essenziell sind, z.B. andere Python-Skripte oder Cache-lastige Apps.
+        # Da wir kein Sudo haben (Zero-Root Prinzip), können wir nur User-Prozesse killen.
         pkill -u $USER -f "pip" 2>/dev/null || true
         pkill -u $USER -f "npm" 2>/dev/null || true
     fi

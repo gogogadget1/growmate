@@ -46,21 +46,25 @@ def poll_all_sensors():
     try:
         # ─── Govee BLE Sensoren ─────────────────────────────────────────
         try:
-            ble_duration = cfg.get("ble_scan_duration_seconds", 10)
-            govee_results = govee_ble.scan_govee_sync(duration=ble_duration)
+            govee_devices = [d for d in devices if d.get("type") == "govee_ble"]
+            if govee_devices:
+                ble_duration = cfg.get("ble_scan_duration_seconds", 10)
+                govee_results = govee_ble.scan_govee_sync(duration=ble_duration)
 
-            for sensor in govee_results:
-                add_sensor_reading(
-                    sensor_name=sensor.get("name", "Unbekannt"),
-                    sensor_type="govee_ble",
-                    temperature=sensor.get("temperature"),
-                    humidity=sensor.get("humidity"),
-                    battery=sensor.get("battery")
-                )
-                logger.info(
-                    f"Govee-Daten gespeichert: {sensor['name']} – "
-                    f"{sensor['temperature']}°C, {sensor['humidity']}%"
-                )
+                for sensor in govee_results:
+                    add_sensor_reading(
+                        sensor_name=sensor.get("name", "Unbekannt"),
+                        sensor_type="govee_ble",
+                        temperature=sensor.get("temperature"),
+                        humidity=sensor.get("humidity"),
+                        battery=sensor.get("battery")
+                    )
+                    logger.info(
+                        f"Govee-Daten gespeichert: {sensor['name']} – "
+                        f"{sensor['temperature']}°C, {sensor['humidity']}%"
+                    )
+            else:
+                logger.debug("Keine Govee BLE-Geräte konfiguriert, überspringe Scan.")
         except Exception as e:
             logger.error(f"Fehler beim Govee BLE Polling: {e}")
 

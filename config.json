@@ -5,13 +5,6 @@
   "server_port": 5000,
   "devices": [
     {
-      "name": "steckdose 1",
-      "type": "tapo_plug",
-      "ip": "192.168.178.74",
-      "mac": "",
-      "enabled": true
-    },
-    {
       "name": "2",
       "type": "tapo_plug",
       "ip": "192.168.178.73",

@@ -56,7 +56,7 @@ def analyze_plant_needs():
                 SELECT min_temp, max_temp, min_humidity, max_humidity, optimal_temp, optimal_humidity 
                 FROM climate_needs 
                 WHERE species = ? AND (phase = ? OR phase IS NULL)
-                LIMIT 1
+                ORDER BY phase DESC LIMIT 1
             """, (current_species, current_phase))
             row = cursor.fetchone()
             if row:
