@@ -185,7 +185,12 @@ async function handleToggle(e) {
 
 async function handleRemoveDevice(e) {
     const name = e.currentTarget.dataset.name;
-    if (!confirm(`Gerät "${name}" wirklich entfernen?`)) return;
+    
+    // Erste Bestätigung
+    if (!confirm(`Möchtest du das Gerät "${name}" wirklich entfernen?\nAlle zugehörigen Daten könnten verloren gehen.`)) return;
+    
+    // Zweite Bestätigung (für Pflanzen/Geräte doppelt sicher gehen)
+    if (!confirm(`Bist du absolut sicher? Die Entfernung von "${name}" kann nicht rückgängig gemacht werden!`)) return;
 
     const res = await API.post('/api/devices/remove', { name });
     if (res.success) {

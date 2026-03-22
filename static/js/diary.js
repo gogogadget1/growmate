@@ -174,7 +174,7 @@ function bindEntryEvents(container) {
     });
     container.querySelectorAll('.btn-delete-entry').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (confirm("Eintrag sicher löschen?")) {
+            if (confirm("Möchtest du diesen Tagebucheintrag wirklich unwiderruflich löschen?")) {
                 const res = await API.delete(`/api/diary/${btn.dataset.id}`);
                 if (res.success) { loadDiary(); showToast("Eintrag gelöscht", "success"); }
             }
