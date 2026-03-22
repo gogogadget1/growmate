@@ -2,3 +2,6 @@ growmate_run.log
 __pycache__/
 *.pyc
 .env
+*.db
+config.json
+.vscode/
