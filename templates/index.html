@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GrowMate – Dein Growzelt-Monitor für Sensordaten, Energieverbrauch und Pflanzentagebuch">
+    <title>GrowMate – Growzelt Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+    <!-- ─── Sidebar Navigation ─────────────────────────────────── -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">🌱</span>
+                <span class="logo-text">GrowMate</span>
+            </div>
+        </div>
+        <ul class="nav-links">
+            <li>
+                <a href="#dashboard" class="nav-link active" data-page="dashboard" id="nav-dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="#history" class="nav-link" data-page="history" id="nav-history">
+                    <span class="nav-icon">📈</span>
+                    <span>Verlauf</span>
+                </a>
+            </li>
+            <li>
+                <a href="#devices" class="nav-link" data-page="devices" id="nav-devices">
+                    <span class="nav-icon">🔌</span>
+                    <span>Geräte</span>
+                </a>
+            </li>
+            <li>
+                <a href="#diary" class="nav-link" data-page="diary" id="nav-diary">
+                    <span class="nav-icon">📓</span>
+                    <span>Tagebuch</span>
+                </a>
+            </li>
+            <li>
+                <a href="#advisor" class="nav-link" data-page="advisor" id="nav-advisor">
+                    <span class="nav-icon">🧠</span>
+                    <span>Ratgeber</span>
+                </a>
+            </li>
+            <li>
+                <a href="#settings" class="nav-link" data-page="settings" id="nav-settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Einstellungen</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="scheduler-status" id="scheduler-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Polling aktiv</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ─── Mobile Header ──────────────────────────────────────── -->
+    <header class="mobile-header" id="mobile-header">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Menü öffnen">
+            <span></span><span></span><span></span>
+        </button>
+        <span class="mobile-title">🌱 GrowMate</span>
+        <button class="refresh-btn" id="mobile-refresh-btn" title="Daten aktualisieren">🔄</button>
+    </header>
+
+    <!-- ─── Main Content ───────────────────────────────────────── -->
+    <main class="main-content" id="main-content">
+        
+        <!-- ══════ GLOBAL ERROR BANNER ══════ -->
+        <div id="global-error-banner" style="display: none; background-color: rgba(239, 68, 68, 0.2); border-left: 4px solid var(--danger); padding: 12px 15px; margin: 15px 20px 0 20px; border-radius: 4px; font-weight: 500;">
+            <div style="display: flex; align-items: flex-start;">
+                <span style="margin-right: 10px; font-size: 1.2rem;">⚠️</span>
+                <div id="global-error-text" style="flex: 1;">Systemfehler...</div>
+            </div>
+        </div>
+
+        <!-- ══════ DASHBOARD ══════ -->
+        <section class="page active" id="page-dashboard">
+            <div class="page-header">
+                <h1>Dashboard</h1>
+                <div class="page-actions">
+                    <button class="btn btn-outline" id="btn-manual-poll" title="Sensoren jetzt abfragen">
+                        🔄 Jetzt aktualisieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sensor-Karten -->
+            <div class="card-grid" id="sensor-cards">
+                <div class="card glass loading-card" id="card-loading">
+                    <div class="card-body center">
+                        <div class="spinner"></div>
+                        <p>Lade Sensordaten...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mini-Charts -->
+            <div class="chart-row" id="dashboard-charts">
+                <div class="card glass">
+                    <div class="card-header">
+                        <h3>🌡️ Temperatur (24h)</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chart-temp-mini"></canvas>
+                    </div>
+                </div>
+                <div class="card glass">
+                    <div class="card-header">
+                        <h3>💧 Luftfeuchtigkeit (24h)</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chart-hum-mini"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Energie-Übersicht -->
+            <div class="section-header">
+                <h2>⚡ Energieverbrauch</h2>
+            </div>
+            <div class="card-grid" id="energy-cards">
+                <!-- Dynamisch befüllt -->
+            </div>
+
+            <!-- Letzte Tagebucheinträge -->
+            <div class="section-header">
+                <h2>📓 Letzte Einträge</h2>
+                <a href="#diary" class="link-btn" data-page="diary">Alle anzeigen →</a>
+            </div>
+            <div class="diary-preview" id="diary-preview">
+                <!-- Dynamisch befüllt -->
+            </div>
+        </section>
+
+        <!-- ══════ VERLAUF ══════ -->
+        <section class="page" id="page-history">
+            <div class="page-header">
+                <h1>📈 Verlauf</h1>
+                <div class="page-actions" style="display: flex; gap: 8px; align-items: center;">
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Stunden:</span>
+                    <input type="number" id="history-timerange" class="input-styled" value="24" min="1" max="1000" style="width: 80px;">
+                    <button class="btn btn-outline btn-sm" id="btn-refresh-history">🔄</button>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="card glass">
+                    <div class="card-header"><h3>🌡️ Temperaturverlauf</h3></div>
+                    <div class="card-body chart-large">
+                        <canvas id="chart-temp-history"></canvas>
+                    </div>
+                </div>
+                <div class="card glass">
+                    <div class="card-header"><h3>💧 Feuchtigkeitsverlauf</h3></div>
+                    <div class="card-body chart-large">
+                        <canvas id="chart-hum-history"></canvas>
+                    </div>
+                </div>
+                <div class="card glass">
+                    <div class="card-header"><h3>⚡ Energieverbrauch</h3></div>
+                    <div class="card-body chart-large">
+                        <canvas id="chart-energy-history"></canvas>
+                    </div>
+                </div>
+                <div class="card glass">
+                    <div class="card-header"><h3>🌱 Pflanzenhöhe</h3></div>
+                    <div class="card-body chart-large">
+                        <canvas id="chart-plant-height"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════ GERÄTE ══════ -->
+        <section class="page" id="page-devices">
+            <div class="page-header">
+                <h1>🔌 Geräte</h1>
+                <div class="page-actions">
+                    <button class="btn btn-primary" id="btn-add-device">+ Gerät hinzufügen</button>
+                </div>
+            </div>
+            <div class="card-grid device-grid" id="device-cards">
+                <!-- Dynamisch befüllt -->
+            </div>
+
+            <!-- Add Device Modal -->
+            <div class="modal-overlay" id="modal-add-device">
+                <div class="modal glass">
+                    <div class="modal-header">
+                        <h3>Neues Gerät hinzufügen</h3>
+                        <button class="modal-close" id="modal-close-device">&times;</button>
+                    </div>
+                    <form id="form-add-device" class="modal-body">
+                        <div class="form-group">
+                            <label for="device-name">Name</label>
+                            <input type="text" id="device-name" placeholder="z.B. Lüfter-Steckdose" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="device-type">Typ</label>
+                            <select id="device-type" required>
+                                <option value="tapo_plug">Tapo Steckdose (P100/P110)</option>
+                                <option value="govee_ble">Govee BLE Sensor</option>
+                                <option value="tapo_sensor">Tapo Sensor</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="group-device-ip">
+                            <label for="device-ip">IP-Adresse</label>
+                            <input type="text" id="device-ip" placeholder="192.168.1.100">
+                        </div>
+                        <div class="form-group" id="group-device-mac">
+                            <label for="device-mac">MAC-Adresse (optional)</label>
+                            <input type="text" id="device-mac" placeholder="AA:BB:CC:DD:EE:FF">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline" id="btn-cancel-device">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary">Hinzufügen</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════ TAGEBUCH ══════ -->
+        <section class="page" id="page-diary">
+            <div class="page-header">
+                <h1>📓 Pflanzentagebuch</h1>
+                <div class="page-actions" style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" id="btn-new-plant-care">🌱 Pflege</button>
+                    <button class="btn btn-primary" id="btn-new-water">💧 Bewässerung</button>
+                    <button class="btn btn-outline" id="btn-new-note">📝 Sonstiges</button>
+                </div>
+            </div>
+
+            <div class="diary-layout">
+                <!-- Linke Spalte: Pflanzen & Archiv -->
+                <div class="diary-sidebar">
+                    <div class="card glass">
+                        <div class="card-header">
+                            <h3>🌱 Meine Pflanzen</h3>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="toggle-show-archived">
+                                <span class="toggle-slider"></span>
+                                <small>Archiv anzeigen</small>
+                            </label>
+                        </div>
+                        <div class="card-body" id="diary-plant-list">
+                            <!-- Dynamisch befüllt mit Pflanzen-Karten -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rechte Spalte: Feed -->
+                <div class="diary-main">
+                    <div class="diary-filters-row card glass">
+                        <select id="diary-plant-filter" class="select-styled">
+                            <option value="">Alle Pflanzen</option>
+                        </select>
+                        <select id="diary-filter" class="select-styled">
+                            <option value="">Alle Kategorien</option>
+                        </select>
+                    </div>
+                    <div class="diary-entries" id="diary-entries">
+                        <!-- Dynamisch befüllt -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- New / Edit Entry Modal -->
+            <div class="modal-overlay" id="modal-diary">
+                <div class="modal glass modal-large">
+                    <div class="modal-header">
+                        <h3 id="diary-modal-title">Neuer Eintrag</h3>
+                        <button class="modal-close" id="modal-close-diary">&times;</button>
+                    </div>
+                    <form id="form-diary" class="modal-body">
+                        <input type="hidden" id="diary-edit-id">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="diary-date">Datum</label>
+                                <input type="date" id="diary-date" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="diary-type">Kategorie</label>
+                                <input type="text" id="diary-type" list="diary-categories" placeholder="z.B. Düngung" required>
+                                <datalist id="diary-categories">
+                                    <option value="Düngung">
+                                    <option value="Bewässerung">
+                                    <option value="Messung">
+                                    <option value="Umtopfen">
+                                    <option value="Beschneidung">
+                                    <option value="Schädlinge">
+                                    <option value="Sonstiges">
+                                </datalist>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="diary-phase">Pflanzenphase</label>
+                                <select id="diary-phase">
+                                    <option value="">Nicht angegeben</option>
+                                    <option value="Keimung">🌱 Keimung</option>
+                                    <option value="Sämling">🌿 Sämling</option>
+                                    <option value="Vegetativ">🍀 Vegetativ</option>
+                                    <option value="Blüte">🌸 Blüte</option>
+                                    <option value="Ernte">✂️ Ernte</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="diary-health">Zustand</label>
+                                <select id="diary-health">
+                                    <option value="">Nicht angegeben</option>
+                                    <option value="Exzellent">🌟 Exzellent</option>
+                                    <option value="Gut">✅ Gut</option>
+                                    <option value="Stabil">⚖️ Stabil</option>
+                                    <option value="Problematisch">⚠️ Problematisch</option>
+                                    <option value="Krank">🤒 Krank/Mangel</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label for="diary-title">Titel</label>
+                                <input type="text" id="diary-title" placeholder="Was ist passiert?" required>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="diary-plant">Pflanze</label>
+                                <input type="text" id="diary-plant" list="known-plants" placeholder="z.B. Tomate 1" required>
+                                <datalist id="known-plants"></datalist>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="diary-content">Beschreibung</label>
+                            <textarea id="diary-content" rows="5" placeholder="Detaillierte Notizen..."></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="diary-height">Pflanzenhöhe (cm)</label>
+                                <input type="number" id="diary-height" step="0.5" min="0" placeholder="z.B. 15.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="diary-water">Gießmenge (ml)</label>
+                                <input type="number" id="diary-water" step="10" min="0" placeholder="z.B. 500">
+                            </div>
+                            <div class="form-group">
+                                <label for="diary-ph">pH-Wert</label>
+                                <input type="number" id="diary-ph" step="0.1" min="0" max="14" placeholder="z.B. 6.5">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline" id="btn-cancel-diary">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary" id="btn-save-diary">Speichern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════ EINSTELLUNGEN ══════ -->
+        <section class="page" id="page-settings">
+            <div class="page-header">
+                <h1>⚙️ Einstellungen</h1>
+            </div>
+
+            <div class="settings-grid">
+                
+                <div class="card glass full-width" style="border-left: 4px solid var(--accent); background: rgba(76, 175, 80, 0.05); grid-column: 1 / -1;">
+                    <div class="card-body">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                            <div>
+                                <h2 style="margin: 0 0 5px 0;">🩺 System-Diagnose</h2>
+                                <p class="text-muted" style="margin: 0;">Probleme beim Auslesen der Sensoren? Starte die automatische Fehleranalyse (Bluetooth & Netzwerk).</p>
+                            </div>
+                            <button class="btn btn-outline" id="btn-run-diagnostics">🔍 Analyse starten</button>
+                        </div>
+                        <div id="diagnostics-results" style="display: none; margin-top: 20px; padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                            <!-- Diagnostic results injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card glass">
+                    <div class="card-header"><h3>🌱 Pflanzenverwaltung</h3></div>
+                    <form id="form-add-plant" class="card-body">
+                        <div class="form-group">
+                            <label for="new-plant-name">Name der Pflanze</label>
+                            <input type="text" id="new-plant-name" placeholder="z.B. Northern Lights #1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-plant-desc">Beschreibung</label>
+                            <textarea id="new-plant-desc" rows="2" placeholder="Sorte, Herkunft..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">Pflanze anlegen</button>
+                    </form>
+                </div>
+
+                <div class="card glass">
+                    <div class="card-header"><h3>🔄 Polling</h3></div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="setting-interval">Polling-Intervall (Minuten)</label>
+                            <input type="number" id="setting-interval" min="1" max="60" value="5">
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-ble-duration">BLE Scan-Dauer (Sekunden)</label>
+                            <input type="number" id="setting-ble-duration" min="5" max="60" value="10">
+                        </div>
+                        <div class="scheduler-info" id="scheduler-info">
+                            <span class="status-dot active"></span>
+                            <span>Nächstes Polling: <strong id="next-poll-time">—</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card glass">
+                    <div class="card-body">
+                        <h2>🔌 Tapo Smart Home</h2>
+                        <p class="text-muted">Zugangsdaten für Tapo Steckdosen (P100/P110) und Hubs (H100).</p>
+                        <div class="form-group">
+                                <label for="setting-tapo-email" class="form-label">Tapo Account E-Mail</label>
+                            <input type="email" id="setting-tapo-email" class="form-control" placeholder="example@gogo.de" autocomplete="off">
+                        </div>
+                        <div class="mb-3">
+                            <label for="setting-tapo-password" class="form-label">Tapo Passwort</label>
+                            <input type="password" id="setting-tapo-password" class="form-control" autocomplete="off">
+                            <small class="text-muted">Wird nur lokal gespeichert.</small>
+                        </div>
+                        <button class="btn btn-outline" id="btn-test-tapo">🔄 Zugangsdaten testen</button>
+                    </div>
+                </div>
+
+                <div class="card glass full-width" style="border-left: 4px solid var(--accent);">
+                    <div class="card-body">
+                        <h2>💾 System & Backup</h2>
+                        <p class="text-muted">Sichere deine Grow-History und Einstellungen oder stelle sie wieder her.</p>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 15px;">
+                            <div style="flex: 1; min-width: 250px;">
+                                <h3>Backup erstellen</h3>
+                                <p class="text-sm">Erzeugt ein ZIP-Archiv mit allen Datenbanken und der Konfiguration.</p>
+                                <button class="btn btn-primary" id="btn-admin-backup">📦 Backup jetzt erstellen</button>
+                            </div>
+                            <div style="flex: 1; min-width: 250px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 20px;">
+                                <h3>Restore einspielen</h3>
+                                <p class="text-sm">Wähle eine Backup-ZIP Datei aus, um das System wiederherzustellen.</p>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="file" id="restore-file" accept=".zip" style="display: none;">
+                                    <button class="btn btn-outline" onclick="document.getElementById('restore-file').click()">📂 ZIP wählen</button>
+                                    <span id="restore-filename" class="text-sm text-muted">Keine Datei gewählt</span>
+                                    <button class="btn btn-danger" id="btn-admin-restore" disabled>⏫ Restore starten</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            <div class="card glass">
+                <div class="card-body">
+                    <h2>🤖 Automatisierungen</h2>
+                    <p class="text-muted">Steuere Steckdosen basierend auf Sensor-Ereignissen (z.B. Wasserleck).</p>
+                    
+                    <div id="automations-container">
+                        <!-- Automations will be loaded here via JS -->
+                    </div>
+                    <button class="btn btn-outline" id="btn-add-automation" style="margin-top: 15px;">+ Regel hinzufügen</button>
+                </div>
+            </div>     <div class="card glass full-width">
+                    <div class="card-body center">
+                        <button class="btn btn-primary btn-large" id="btn-save-settings">💾 Einstellungen speichern</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════ RATGEBER ══════ -->
+        <section class="page" id="page-advisor">
+            <div class="page-header">
+                <h1>🧠 Intelligenter Ratgeber</h1>
+            </div>
+            <div class="advisor-container">
+                <div class="card glass">
+                    <div class="card-body">
+                        <p class="text-muted">Basierend auf wissenschaftlichen Erkenntnissen aus der Botanik werden deine Sensordaten analysiert.</p>
+                        <div id="advisor-tips" class="advisor-tips-list">
+                            <!-- Tipps werden hier geladen -->
+                            <div class="loading-state">Lade Informationen...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Lüftungs-Schnittstelle Blueprint -->
+                <div class="card glass" style="margin-top: 20px; border-left: 4px solid var(--warning);">
+                    <div class="card-header"><h3>💨 Lüftungs-Steuerung (Blueprint)</h3></div>
+                    <div class="card-body">
+                        <p class="text-sm">Schnittstelle für Abluft-Aktor noch nicht konfiguriert.</p>
+                        <div id="ventilation-status" class="status-badge" style="background: rgba(255,167,38,0.1); color: var(--warning);">
+                            Standby
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ─── Toast Notification ─────────────────────────────────── -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- ─── Scripts ────────────────────────────────────────────── -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/devices.js"></script>
+    <script src="/static/js/diary.js"></script>
+    <script src="/static/js/advisor.js"></script>
+</body>
+</html>

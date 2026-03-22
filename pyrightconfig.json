@@ -1,0 +1,8 @@
+{
+  "include": ["."],
+  "venvPath": "/home/gov-k/growmate",
+  "venv": "venv",
+  "extraPaths": [
+    "/home/gov-k/growmate"
+  ]
+}
