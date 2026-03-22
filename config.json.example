@@ -1,0 +1,37 @@
+{
+  "polling_interval_minutes": 5,
+  "ble_scan_duration_seconds": 10,
+  "server_host": "0.0.0.0",
+  "server_port": 5000,
+  "devices": [
+    {
+      "name": "2",
+      "type": "tapo_plug",
+      "ip": "192.168.178.73",
+      "mac": "",
+      "enabled": true
+    },
+    {
+      "name": "3",
+      "type": "tapo_plug",
+      "ip": "192.168.178.75",
+      "mac": "",
+      "enabled": true
+    },
+    {
+      "name": "4",
+      "type": "tapo_plug",
+      "ip": "192.168.178.76",
+      "mac": "",
+      "enabled": true
+    },
+    {
+      "name": "Tapo Hub H100",
+      "type": "tapo_hub",
+      "ip": "192.168.178.69",
+      "mac": "e0:d3:62:ed:ae:91",
+      "enabled": true
+    }
+  ],
+  "automations": []
+}
