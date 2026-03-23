@@ -15,6 +15,8 @@ import config
 from datetime import datetime
 import threading
 import time
+import os
+import random
 
 logger = logging.getLogger("growmate.scheduler")
 
@@ -42,6 +44,11 @@ def poll_all_sensors():
     cfg = load_config()
     devices = cfg.get("devices", [])
     t_email, t_password = get_tapo_credentials()
+    
+    # ─── Demo Mode ──────────────────────────────────────────────────
+    if os.environ.get("GROW_DEMO_MODE", "false").lower() == "true":
+        _generate_mock_data()
+        logger.info("Demo-Modus: Synthetische Daten generiert.")
 
     try:
         # ─── Govee BLE Sensoren ─────────────────────────────────────────
@@ -205,6 +212,30 @@ def execute_device_command(device_name, command, cfg):
         
     return False, f"Protokoll {d_type} nicht unterstützt"
 
+
+def _generate_mock_data():
+    """Generiert realistische Dummy-Daten für den Demo-Modus."""
+    # 1. Klima-Sensor (Zelt Demo)
+    temp = 22.5 + (random.random() * 4.0)  # 22.5 - 26.5
+    hum = 55.0 + (random.random() * 10.0)  # 55 - 65
+    add_sensor_reading(
+        sensor_name="Zelt Demo (Virtual)",
+        sensor_type="govee_ble",
+        temperature=round(temp, 1),
+        humidity=round(hum, 1),
+        battery=98
+    )
+
+    # 2. Steckdose (Lampe Demo)
+    power = 80.0 + (random.random() * 5.0) # 80 - 85W
+    add_energy_reading(
+        device_name="Lampe Demo (Virtual)",
+        power_w=round(power, 1),
+        energy_today_wh=1200 + random.randint(0, 100),
+        energy_month_wh=35000 + random.randint(0, 500),
+        voltage_v=231,
+        current_a=0.35
+    )
 
 def start_scheduler():
     """Startet den Scheduler mit dem konfigurierten Intervall."""

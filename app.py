@@ -50,7 +50,8 @@ logger = logging.getLogger("growmate")
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    demo_active = os.environ.get("GROW_DEMO_MODE", "false").lower() == "true"
+    return render_template("index.html", demo_active=demo_active)
 
 
 # ─── API: Sensor-Daten ──────────────────────────────────────────────

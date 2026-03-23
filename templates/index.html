@@ -73,6 +73,9 @@
             <span></span><span></span><span></span>
         </button>
         <span class="mobile-title">🌱 GrowMate</span>
+        {% if demo_active %}
+        <span class="badge demo-badge" style="margin-right: 10px;">🧪 Demo</span>
+        {% endif %}
         <button class="refresh-btn" id="mobile-refresh-btn" title="Daten aktualisieren">🔄</button>
     </header>
 
@@ -90,7 +93,12 @@
         <!-- ══════ DASHBOARD ══════ -->
         <section class="page active" id="page-dashboard">
             <div class="page-header">
-                <h1>Dashboard</h1>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <h1>Dashboard</h1>
+                    {% if demo_active %}
+                    <span class="badge demo-badge">🧪 Demo-Modus aktiv</span>
+                    {% endif %}
+                </div>
                 <div class="page-actions">
                     <button class="btn btn-outline" id="btn-manual-poll" title="Sensoren jetzt abfragen">
                         🔄 Jetzt aktualisieren

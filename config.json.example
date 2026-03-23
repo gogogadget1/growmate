@@ -34,4 +34,4 @@
     }
   ],
   "automations": []
-}
+}  "demo_mode_note": "Aktivieren Sie GROW_DEMO_MODE=true in der .env für synthetische Testdaten."

@@ -55,12 +55,18 @@ TAPO_PASSWORD=dein_passwort
 PLANT_EDIT_PASSWORD=growmate  # Passwort für kritische Änderungen
 ```
 
-### 4. Starten
+### 4. Starten & Demo-Modus
 Nutze das mitgelieferte Watchdog-Skript für maximale Stabilität:
 
 ```bash
 ./start.sh
 ```
+
+**Ohne Sensoren testen?**
+Wenn du keine Hardware besitzt, kannst du den **Demo-Modus** aktivieren. Setze dazu in deiner `.env`:
+`GROW_DEMO_MODE=true`
+Das System generiert dann automatisch synthetische Daten für einen Test-Sensor und eine Test-Steckdose.
+
 Die App ist anschließend unter **http://localhost:5000** erreichbar.
 
 ---

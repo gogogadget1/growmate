@@ -245,6 +245,17 @@ body::before {
     color: var(--text-muted);
 }
 
+.demo-badge {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    backdrop-filter: blur(5px);
+}
+
 .status-dot {
     width: 8px;
     height: 8px;
