@@ -34,6 +34,7 @@
 
     --temp-color: #ff7043;
     --humidity-color: #42a5f5;
+    --vpd-color: #ab47bc; /* Purple for VPD */
     --energy-color: #ffa726;
     --battery-color: #66bb6a;
     --height-color: #ab47bc;
@@ -502,9 +503,11 @@ body::before {
 
 .sensor-card .sensor-values {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: var(--space-md);
 }
+
+.sensor-value .value-number.vpd { color: var(--vpd-color); }
 
 .sensor-value {
     display: flex;

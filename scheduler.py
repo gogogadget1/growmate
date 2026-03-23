@@ -12,6 +12,9 @@ from database import add_sensor_reading, add_energy_reading
 from sensors import govee_ble, tapo_devices
 import database
 import config
+import metrics
+import alerts
+import os
 from datetime import datetime
 import threading
 import time
@@ -70,6 +73,12 @@ def poll_all_sensors():
                         f"Govee-Daten gespeichert: {sensor['name']} – "
                         f"{sensor['temperature']}°C, {sensor['humidity']}%"
                     )
+                    
+                    # ─── NEU: VPD Berechnung ───────────────────────────
+                    vpd = metrics.calculate_vpd(sensor['temperature'], sensor['humidity'])
+                    if vpd is not None:
+                        database.add_growth_metric(sensor['name'], vpd=vpd)
+                        logger.debug(f"VPD berechnet für {sensor['name']}: {vpd} kPa")
             else:
                 logger.debug("Keine Govee BLE-Geräte konfiguriert, überspringe Scan.")
         except Exception as e:
@@ -84,17 +93,28 @@ def poll_all_sensors():
 
                     for plug in plug_results:
                         if plug.get("success") and plug.get("power_w") is not None:
+                            name = plug.get("configured_name", plug.get("ip", "Unbekannt"))
                             add_energy_reading(
-                                device_name=plug.get("configured_name", plug.get("ip", "Unbekannt")),
+                                device_name=name,
                                 power_w=plug.get("power_w", 0),
                                 energy_today_wh=plug.get("energy_today_wh"),
                                 energy_month_wh=plug.get("energy_month_wh"),
                                 voltage_v=plug.get("voltage_v"),
                                 current_a=plug.get("current_a")
                             )
+                            
+                            # ─── NEU: DLI Berechnung ───────────────────────────
+                            dev_cfg = database.get_device_config(name)
+                            if dev_cfg and dev_cfg.get("is_growth_light") and dev_cfg.get("ppfd_value"):
+                                hours_on = database.get_daily_light_hours(name)
+                                dli = metrics.calculate_dli(dev_cfg["ppfd_value"], hours_on)
+                                if dli is not None:
+                                    database.add_growth_metric(name, dli=dli)
+                                    logger.info(f"DLI berechnet für {name}: {dli} mol/m²/d")
+
                             logger.info(
                                 f"Tapo-Energiedaten gespeichert: "
-                                f"{plug.get('configured_name')} – "
+                                f"{name} – "
                                 f"{plug.get('power_w', 0):.1f}W"
                             )
             else:
@@ -120,6 +140,16 @@ def poll_all_sensors():
                     check_automations(s, cfg)
             except Exception as e:
                 logger.error(f"Fehler beim Tapo Hub Polling: {e}")
+
+        # ─── NEU: Webhook Alerts ────────────────────────────────────────
+        try:
+            current_readings = database.get_latest_sensor_readings()
+            alert_messages = alerts.check_thresholds(current_readings, cfg)
+            
+            for msg in alert_messages:
+                alerts.send_webhook_alert(msg, webhook_url=cfg.get("alert_webhook_url"))
+        except Exception as e:
+            logger.error(f"Fehler beim Alert-Check: {e}")
 
         logger.info("Polling-Job abgeschlossen.")
 

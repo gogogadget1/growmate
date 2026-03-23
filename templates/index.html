@@ -474,6 +474,31 @@
                     </div>
                 </div>
 
+                <div class="card glass">
+                    <div class="card-body">
+                        <h2>🔔 Alerting & Benachrichtigungen</h2>
+                        <p class="text-muted">Erhalte Alerts via Telegram/Discord Webhook (z.B. bei Hitze oder Schimmelgefahr).</p>
+                        <div class="form-group">
+                            <label for="setting-alert-webhook">Webhook URL (Discord/Telegram)</label>
+                            <input type="text" id="setting-alert-webhook" placeholder="https://discord.com/api/webhooks/..." autocomplete="off">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="form-group">
+                                <label for="setting-alert-temp-max">Max. Temperatur (°C)</label>
+                                <input type="number" id="setting-alert-temp-max" value="35" min="20" max="50">
+                            </div>
+                            <div class="form-group">
+                                <label for="setting-alert-temp-min">Min. Temperatur (°C)</label>
+                                <input type="number" id="setting-alert-temp-min" value="15" min="0" max="25">
+                            </div>
+                            <div class="form-group">
+                                <label for="setting-alert-hum-max">Max. Feuchtigkeit (%)</label>
+                                <input type="number" id="setting-alert-hum-max" value="85" min="50" max="95">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             <div class="card glass">
                 <div class="card-body">
                     <h2>🤖 Automatisierungen</h2>

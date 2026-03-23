@@ -16,18 +16,32 @@ async function loadDevices() {
         </div>
     `;
 
-    const res = await API.get('/api/devices');
+    const [res, configsRes] = await Promise.all([
+        API.get('/api/devices'),
+        API.get('/api/devices/config')
+    ]);
+
+    const configs = {};
+    if (configsRes.success) {
+        configsRes.data.forEach(c => configs[c.device_name] = c);
+    }
 
     if (res.success && res.data && res.data.length > 0) {
         container.innerHTML = res.data.map((device, index) => {
+            const config = configs[device.name] || {};
             if (device.type === 'tapo_plug') {
-                return renderPlugCard(device, index);
+                return renderPlugCard(device, index, config);
             } else if (device.type === 'govee_ble') {
                 return renderSensorDeviceCard(device);
             } else {
                 return renderGenericDeviceCard(device);
             }
         }).join('');
+
+        // Config-Safe-Events binden
+        container.querySelectorAll('.btn-save-device-config').forEach(btn => {
+            btn.addEventListener('click', handleSaveDeviceConfig);
+        });
 
         // Toggle-Events binden
         container.querySelectorAll('.device-toggle').forEach(toggle => {
@@ -55,9 +69,11 @@ async function loadDevices() {
     }
 }
 
-function renderPlugCard(device, index) {
+function renderPlugCard(device, index, config = {}) {
     const isOnline = device.online !== false;
     const isOn = device.device_on === true;
+    const ppfd = config.ppfd_value || 0;
+    const isLight = config.is_growth_light === 1 || config.is_growth_light === true;
 
     return `
         <div class="card glass device-card sensor-card" data-device-name="${escapeHtml(device.name)}">
@@ -85,6 +101,21 @@ function renderPlugCard(device, index) {
                     }
                 </div>
 
+                <div class="device-config-extra" style="margin: 15px 0; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Wissenschaftliche Config</div>
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="config-is-light" ${isLight ? 'checked' : ''} style="accent-color: var(--accent);">
+                            <span>Wachstumslicht</span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.85rem;">PPFD:</span>
+                            <input type="number" class="config-ppfd" value="${ppfd}" min="0" max="3000" style="width: 70px; background: var(--bg-input); border: 1px solid var(--border-color); color: white; border-radius: 4px; padding: 2px 5px; font-size: 0.85rem;">
+                            <button class="btn btn-sm btn-outline btn-save-device-config" data-name="${escapeHtml(device.name)}" style="padding: 2px 8px;">💾</button>
+                        </div>
+                    </div>
+                </div>
+
                 ${device.power_w !== undefined ? `
                 <div class="device-energy">
                     <div class="device-energy-item">
@@ -98,7 +129,7 @@ function renderPlugCard(device, index) {
                 </div>
                 ` : ''}
 
-                <div class="device-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <div class="device-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
                     <button class="btn btn-outline btn-icon btn-rename-device"
                             data-name="${escapeHtml(device.name)}" title="Umbenennen">✏️</button>
                     <button class="btn btn-danger btn-icon btn-remove-device"
@@ -107,6 +138,28 @@ function renderPlugCard(device, index) {
             </div>
         </div>
     `;
+}
+
+async function handleSaveDeviceConfig(e) {
+    const btn = e.currentTarget;
+    const name = btn.dataset.name;
+    const card = btn.closest('.device-card');
+    const isLight = card.querySelector('.config-is-light').checked;
+    const ppfd = parseInt(card.querySelector('.config-ppfd').value) || 0;
+
+    btn.disabled = true;
+    const res = await API.post('/api/devices/config', {
+        device_name: name,
+        ppfd_value: ppfd,
+        is_growth_light: isLight
+    });
+
+    if (res.success) {
+        showToast(`✅ Konfiguration für ${name} gespeichert`, 'success');
+    } else {
+        showToast(`❌ Fehler: ${res.message}`, 'error');
+    }
+    btn.disabled = false;
 }
 
 function renderSensorDeviceCard(device) {

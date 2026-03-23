@@ -23,7 +23,7 @@ from database import (
     get_latest_energy_readings, get_energy_history,
     add_diary_entry, get_diary_entries, get_diary_entry,
     update_diary_entry, delete_diary_entry, get_plant_height_history,
-    add_sensor_reading
+    add_sensor_reading, get_latest_growth_metrics
 )
 from sensors.tapo_devices import (
     turn_on, turn_off, toggle_device,
@@ -58,9 +58,22 @@ def index():
 
 @app.route("/api/sensors/current")
 def api_sensors_current():
-    """Aktuelle Sensorwerte aller Sensoren."""
+    """Aktuelle Sensorwerte aller Sensoren inkl. VPD."""
     readings = get_latest_sensor_readings()
+    # Letzte VPD Werte holen
+    metrics = {m["sensor_name"]: m["vpd"] for m in get_latest_growth_metrics()}
+    
+    for r in readings:
+        r["vpd"] = metrics.get(r["sensor_name"])
+        
     return jsonify({"success": True, "data": readings})
+
+
+@app.route("/api/metrics/latest")
+def api_metrics_latest():
+    """Neueste wissenschaftliche Wachstums-Metriken (VPD, DLI)."""
+    data = get_latest_growth_metrics()
+    return jsonify({"success": True, "data": data})
 
 
 @app.route("/api/sensors/history")
@@ -76,8 +89,15 @@ def api_sensors_history():
 
 @app.route("/api/energy/current")
 def api_energy_current():
-    """Aktuelle Energiewerte aller Steckdosen."""
+    """Aktuelle Energiewerte aller Steckdosen inkl. DLI."""
     readings = get_latest_energy_readings()
+    # Letzte DLI Werte holen
+    from database import get_latest_growth_metrics
+    metrics = {m["sensor_name"]: m["dli"] for m in get_latest_growth_metrics() if m["dli"] is not None}
+    
+    for r in readings:
+        r["dli"] = metrics.get(r["device_name"])
+        
     return jsonify({"success": True, "data": readings})
 
 
@@ -372,7 +392,17 @@ def api_config_update():
     if 'automations' in data:
         cfg['automations'] = data['automations']
         
-    save_config(cfg) # Assuming save_config is available
+    # Alerting Settings
+    if 'alert_webhook_url' in data:
+        cfg['alert_webhook_url'] = data['alert_webhook_url']
+    if 'alert_temp_max' in data:
+        cfg['alert_temp_max'] = data['alert_temp_max']
+    if 'alert_temp_min' in data:
+        cfg['alert_temp_min'] = data['alert_temp_min']
+    if 'alert_hum_max' in data:
+        cfg['alert_hum_max'] = data['alert_hum_max']
+        
+    save_config(cfg)
     return jsonify({"success": True, "message": "Konfiguration aktualisiert"})
 
 
@@ -546,6 +576,38 @@ def api_device_rename():
         logger.error(f"Fehler beim Umbenennen in DB: {e}")
 
     return jsonify({"success": True, "message": "Gerät erfolgreich umbenannt"})
+
+
+@app.route("/api/devices/config", methods=["GET", "POST"])
+def api_devices_config():
+    """Liest oder aktualisiert PPFD/Wachstumslicht-Config für ein Gerät."""
+    from database import get_db
+    if request.method == "POST":
+        data = request.get_json()
+        name = data.get("device_name")
+        if not name:
+            return jsonify({"success": False, "message": "Gerätename fehlt"}), 400
+        
+        ppfd = data.get("ppfd_value", 0)
+        is_light = data.get("is_growth_light", False)
+        
+        conn = get_db()
+        conn.execute("""
+            INSERT INTO device_configs (device_name, ppfd_value, is_growth_light)
+            VALUES (?, ?, ?)
+            ON CONFLICT(device_name) DO UPDATE SET
+                ppfd_value = excluded.ppfd_value,
+                is_growth_light = excluded.is_growth_light
+        """, (name, ppfd, is_light))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    
+    # GET: Alle Configs
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM device_configs").fetchall()
+    conn.close()
+    return jsonify({"success": True, "data": [dict(r) for r in rows]})
 
 # ─── App Start ──────────────────────────────────────────────────────
 
