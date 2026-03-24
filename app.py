@@ -34,6 +34,7 @@ import analyzer
 
 # ─── App Setup ──────────────────────────────────────────────────────
 
+VERSION = "1.1-dev"
 app = Flask(__name__,
             static_folder="static",
             template_folder="templates")
@@ -346,6 +347,7 @@ def api_status():
 def api_config_get():
     """Konfiguration abrufen."""
     config = load_config()
+    config["version"] = VERSION
     
     # Tapo credentials from .env in config einfügen (maskiert)
     email, password = get_tapo_credentials()
