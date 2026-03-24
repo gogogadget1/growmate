@@ -623,12 +623,12 @@ def main():
     logger.info("Datenbank initialisiert.")
 
     # Scheduler starten
-    start_scheduler()
+# start_scheduler()
 
     # Initiales Polling ausführen (im Hintergrund, um Startup nicht zu blockieren)
     logger.info("Starte initiales Sensor-Polling (Hintergrund)...")
     import threading
-    threading.Thread(target=poll_all_sensors, daemon=True).start()
+# threading.Thread(target=poll_all_sensors, daemon=True).start()
 
     # Flask starten
     config = load_config()
