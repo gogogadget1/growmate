@@ -3,3 +3,7 @@ bleak>=0.21
 tapo>=0.8.12
 apscheduler>=3.10
 python-dotenv>=1.0.0
+numpy>=1.24
+onnxruntime>=1.16.0
+tokenizers>=0.15.0
+flask-limiter>=3.5

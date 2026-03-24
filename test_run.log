@@ -1,0 +1,12 @@
+2026-03-24 12:41:40 [growmate] INFO: Datenbank initialisiert.
+2026-03-24 12:41:40 [growmate] INFO: Starte initiales Sensor-Polling (Hintergrund)...
+2026-03-24 12:41:40 [growmate] INFO: GrowMate startet auf http://0.0.0.0:5001
+ * Serving Flask app 'app'
+ * Debug mode: off
+2026-03-24 12:41:40 [werkzeug] INFO: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.178.71:5001
+2026-03-24 12:41:40 [werkzeug] INFO: [33mPress CTRL+C to quit[0m
+2026-03-24 12:41:44 [werkzeug] INFO: 127.0.0.1 - - [24/Mar/2026 12:41:44] "GET / HTTP/1.1" 200 -
+2026-03-24 12:41:44 [werkzeug] INFO: 127.0.0.1 - - [24/Mar/2026 12:41:44] "GET /api/config HTTP/1.1" 200 -

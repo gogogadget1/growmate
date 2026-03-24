@@ -1,11 +1,14 @@
 # 🌿 GrowMate – Professional Grow Monitor & Advisor
 
+> **Dev-Branch: Version 1.3** — Diese Version nutzt vollständig lokale Edge-AI via ONNX. Kein Cloud-Backend, kein Internet zur Laufzeit. Der neue semantische Ratgeber (`/api/analyze/text`) liefert Echtzeit-Pflegetipps direkt auf deiner CPU.
+
 GrowMate ist ein autarkes, privatsphäre-fokussiertes Softwaresystem zur Überwachung, Steuerung und wissenschaftlichen Dokumentation der Pflanzenzucht. Entwickelt für den Betrieb auf lokaler Hardware (Raspberry Pi, Laptops), verzichtet es bewusst auf Cloud-Abhängigkeiten und bietet dennoch modernste Features.
 
 ---
 
 ## ✨ Highlights
 
+*   **🤖 v1.3 – Vollständige lokale Edge-AI (ONNX)**: Semantische Textsuche mit MiniLM-L6-V2 via ONNX-Runtime. 154 Wissenseinträge, vorberechnet als Vektoren. Kein Internet, kein GPU-Bedarf.
 *   **🧠 Botany AI Advisor**: Integriertes botanisches Wissen analysiert Sensordaten in Echtzeit und gibt präzise Pflegehinweise (VPD, Hitzestress, Schimmelwarnung).
 *   **💎 Premium Glassmorphism UI**: Ein hochmodernes, visuell ansprechendes Interface mit Dark Mode und flüssigen Animationen.
 *   **🛡️ Safety First**: Mehrstufige Bestätigungsdialoge schützen vor versehentlichem Löschen wichtiger Daten oder Geräte.
@@ -71,11 +74,23 @@ Die App ist anschließend unter **http://localhost:5000** erreichbar.
 
 ---
 
-## 🛠️ Technologie-Stack
-- **Backend**: Flask (Python), APScheduler
+## 🛠️ Technologie-Stack (v1.3)
+- **Backend**: Flask (Python), APScheduler, Flask-Limiter
+- **AI / KI**: ONNX Runtime + MiniLM-L6-V2 (vollständig lokal, CPU-only)
 - **DB**: SQLite (Local-First)
 - **Frontend**: Vanilla JS (ES6+), Modern CSS (Custom Glassmorphism)
 - **Kommunikation**: Bleak (Bluetooth LE), Tapo PyP100
+
+### ONNX Model Setup (einmalig)
+Das ONNX-Modell muss einmalig heruntergeladen werden:
+```bash
+mkdir -p model
+# MiniLM-L6-V2 via optimum (empfohlen)
+pip install optimum[exporters]
+optimum-cli export onnx --model sentence-transformers/all-MiniLM-L6-v2 model/
+# Vektoren vorberechnen:
+python3 build_vectors.py
+```
 
 ---
 *Viel Erfolg bei deinem Grow!*

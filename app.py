@@ -23,7 +23,7 @@ from database import (
     get_latest_energy_readings, get_energy_history,
     add_diary_entry, get_diary_entries, get_diary_entry,
     update_diary_entry, delete_diary_entry, get_plant_height_history,
-    add_sensor_reading, get_latest_growth_metrics
+    add_sensor_reading
 )
 from sensors.tapo_devices import (
     turn_on, turn_off, toggle_device,
@@ -32,12 +32,41 @@ from sensors.tapo_devices import (
 from scheduler import start_scheduler, stop_scheduler, poll_all_sensors, get_scheduler_status
 import analyzer
 
+# ─── Rate-Limiting (Problem 5) ────────────────────────────────────────────────
+# Schützt nur destruktive/teure Endpunkte gegen unbeabsichtigtes Flooding.
+# Read-Endpunkte bleiben unbeschränkt. Greift nur im lokalen Netz – bewusst
+# großzügig dimensioniert (kein öffentlicher Server).
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _limiter_available = True
+except ImportError:
+    _limiter_available = False
+    logger = logging.getLogger("growmate")
+    logger.warning("flask-limiter nicht installiert – Rate-Limiting deaktiviert. "
+                   "Installation: pip install flask-limiter")
+
 # ─── App Setup ──────────────────────────────────────────────────────
 
-VERSION = "1.1-dev"
+VERSION = "1.3-dev"
 app = Flask(__name__,
             static_folder="static",
             template_folder="templates")
+
+# Rate-Limiter an App binden (nur wenn flask-limiter installiert)
+if _limiter_available:
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=[],          # keine globale Beschränkung auf Read-Endpoints
+        storage_uri="memory://",    # kein Redis nötig, läuft in-process
+    )
+else:
+    # Dummy-Limiter damit der Decorator @limiter.limit() nicht crasht
+    class _NoOpLimiter:
+        def limit(self, *a, **kw):
+            return lambda f: f
+    limiter = _NoOpLimiter()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,29 +88,19 @@ def index():
 
 @app.route("/api/sensors/current")
 def api_sensors_current():
-    """Aktuelle Sensorwerte aller Sensoren inkl. VPD."""
+    """Aktuelle Sensorwerte aller Sensoren."""
     readings = get_latest_sensor_readings()
-    # Letzte VPD Werte holen
-    metrics = {m["sensor_name"]: m["vpd"] for m in get_latest_growth_metrics()}
-    
-    for r in readings:
-        r["vpd"] = metrics.get(r["sensor_name"])
-        
     return jsonify({"success": True, "data": readings})
-
-
-@app.route("/api/metrics/latest")
-def api_metrics_latest():
-    """Neueste wissenschaftliche Wachstums-Metriken (VPD, DLI)."""
-    data = get_latest_growth_metrics()
-    return jsonify({"success": True, "data": data})
 
 
 @app.route("/api/sensors/history")
 def api_sensors_history():
     """Historische Sensordaten mit optionalem Filter."""
     sensor_name = request.args.get("sensor")
-    hours = int(request.args.get("hours", 24))
+    try:
+        hours = int(request.args.get("hours", 24))
+    except (ValueError, TypeError):
+        hours = 24
     data = get_sensor_history(sensor_name=sensor_name, hours=hours)
     return jsonify({"success": True, "data": data})
 
@@ -90,15 +109,8 @@ def api_sensors_history():
 
 @app.route("/api/energy/current")
 def api_energy_current():
-    """Aktuelle Energiewerte aller Steckdosen inkl. DLI."""
+    """Aktuelle Energiewerte aller Steckdosen."""
     readings = get_latest_energy_readings()
-    # Letzte DLI Werte holen
-    from database import get_latest_growth_metrics
-    metrics = {m["sensor_name"]: m["dli"] for m in get_latest_growth_metrics() if m["dli"] is not None}
-    
-    for r in readings:
-        r["dli"] = metrics.get(r["device_name"])
-        
     return jsonify({"success": True, "data": readings})
 
 
@@ -106,7 +118,10 @@ def api_energy_current():
 def api_energy_history():
     """Historische Energiedaten."""
     device_name = request.args.get("device")
-    hours = int(request.args.get("hours", 24))
+    try:
+        hours = int(request.args.get("hours", 24))
+    except (ValueError, TypeError):
+        hours = 24
     data = get_energy_history(device_name=device_name, hours=hours)
     return jsonify({"success": True, "data": data})
 
@@ -151,6 +166,7 @@ def api_devices():
 
 
 @app.route("/api/devices/toggle", methods=["POST"])
+@limiter.limit("30 per minute")   # max. 30 Schaltvorgänge/Min – verhindert Flooding
 def api_device_toggle():
     """Schaltet eine Steckdose um."""
     data = request.get_json()
@@ -193,8 +209,14 @@ def api_diary_list():
     """Tagebucheinträge auflisten mit Filter für archivierte Pflanzen."""
     entry_type = request.args.get("type")
     plant_name = request.args.get("plant")
-    limit = int(request.args.get("limit", 50))
-    offset = int(request.args.get("offset", 0))
+    try:
+        limit = int(request.args.get("limit", 50))
+    except (ValueError, TypeError):
+        limit = 50
+    try:
+        offset = int(request.args.get("offset", 0))
+    except (ValueError, TypeError):
+        offset = 0
     show_archived = request.args.get("show_archived", "false").lower() == "true"
     
     entries = get_diary_entries(limit=limit, offset=offset, 
@@ -270,6 +292,7 @@ def api_diary_heights():
 # ─── API: Polling & Scheduler ───────────────────────────────────────
 
 @app.route("/api/poll", methods=["POST"])
+@limiter.limit("6 per minute")    # max. 1 manueller Poll/10s
 def api_poll():
     """Manuelles Polling aller Sensoren triggern."""
     try:
@@ -394,17 +417,7 @@ def api_config_update():
     if 'automations' in data:
         cfg['automations'] = data['automations']
         
-    # Alerting Settings
-    if 'alert_webhook_url' in data:
-        cfg['alert_webhook_url'] = data['alert_webhook_url']
-    if 'alert_temp_max' in data:
-        cfg['alert_temp_max'] = data['alert_temp_max']
-    if 'alert_temp_min' in data:
-        cfg['alert_temp_min'] = data['alert_temp_min']
-    if 'alert_hum_max' in data:
-        cfg['alert_hum_max'] = data['alert_hum_max']
-        
-    save_config(cfg)
+    save_config(cfg) # Assuming save_config is available
     return jsonify({"success": True, "message": "Konfiguration aktualisiert"})
 
 
@@ -485,7 +498,7 @@ def run_diagnostics():
                     # Also test credentials if possible
                     from sensors.tapo_devices import test_tapo_credentials
                     cred_res = test_tapo_credentials(cfg.get('tapo_email',''), cfg.get('tapo_password',''), ip=ip)
-                    if not cred_res['success']:
+                    if not cred_res.get('success'):
                          status_info["status"] = "warning"
                          status_info["message"] += f" Aber der Login schlägt fehl: {cred_res['message']} (Falsches Passwort?)"
                     tapo_results.append(status_info)
@@ -579,58 +592,41 @@ def api_device_rename():
 
     return jsonify({"success": True, "message": "Gerät erfolgreich umbenannt"})
 
-
-@app.route("/api/devices/config", methods=["GET", "POST"])
-def api_devices_config():
-    """Liest oder aktualisiert PPFD/Wachstumslicht-Config für ein Gerät."""
-    from database import get_db
-    if request.method == "POST":
-        data = request.get_json()
-        name = data.get("device_name")
-        if not name:
-            return jsonify({"success": False, "message": "Gerätename fehlt"}), 400
-        
-        ppfd = data.get("ppfd_value", 0)
-        is_light = data.get("is_growth_light", False)
-        
-        conn = get_db()
-        conn.execute("""
-            INSERT INTO device_configs (device_name, ppfd_value, is_growth_light)
-            VALUES (?, ?, ?)
-            ON CONFLICT(device_name) DO UPDATE SET
-                ppfd_value = excluded.ppfd_value,
-                is_growth_light = excluded.is_growth_light
-        """, (name, ppfd, is_light))
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True})
-    
-    # GET: Alle Configs
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM device_configs").fetchall()
-    conn.close()
-    return jsonify({"success": True, "data": [dict(r) for r in rows]})
-
 # ─── App Start ──────────────────────────────────────────────────────
 
 def main():
     """Startet die GrowMate-Anwendung."""
     import getpass
-    if getpass.getuser() != "gov-k":
-        logger.error("FATAL ERROR: Das System darf zwingend nur unter dem Benutzer 'gov-k' ausgeführt werden.")
+
+    # Problem 1 – Fix: Benutzerpflicht konfigurierbar via .env
+    # GROWMATE_USER=gov-k  → erzwingt diesen Benutzer
+    # (nicht gesetzt)      → läuft unter jedem Benutzer, gibt nur eine Warnung aus
+    required_user = os.getenv("GROWMATE_USER", "").strip()
+    current_user  = getpass.getuser()
+    if required_user and current_user != required_user:
+        logger.error(
+            f"FATAL: App muss unter Benutzer '{required_user}' laufen "
+            f"(aktuell: '{current_user}'). "
+            f"Entweder 'sudo -u {required_user} ...' oder GROWMATE_USER aus .env entfernen."
+        )
         sys.exit(1)
+    elif not required_user:
+        logger.warning(
+            f"GROWMATE_USER nicht gesetzt – läuft als '{current_user}'. "
+            "Für Produktionsbetrieb GROWMATE_USER=<username> in .env setzen."
+        )
 
     # Datenbank initialisieren
     init_db()
     logger.info("Datenbank initialisiert.")
 
     # Scheduler starten
-# start_scheduler()
+    # start_scheduler()  # DEV: disabled to prevent BLE hardware conflict
 
     # Initiales Polling ausführen (im Hintergrund, um Startup nicht zu blockieren)
     logger.info("Starte initiales Sensor-Polling (Hintergrund)...")
     import threading
-# threading.Thread(target=poll_all_sensors, daemon=True).start()
+    # threading.Thread(target=poll_all_sensors, daemon=True).start()  # DEV: disabled
 
     # Flask starten
     config = load_config()
@@ -718,6 +714,21 @@ def api_analysis():
     tips = analyzer.analyze_plant_needs()
     return jsonify({"success": True, "data": tips})
 
+@app.route("/api/analyze/text", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_analyze_text():
+    """Analysiert einen beliebigen Text (visuelle Beobachtung) mit dem Modell."""
+    data = request.get_json()
+    if not data or not data.get("text"):
+        return jsonify({"success": False, "message": "Text fehlt"}), 400
+        
+    text = data.get("text").strip()
+    if len(text) < 3:
+        return jsonify({"success": False, "message": "Text zu kurz"}), 400
+        
+    tips = analyzer._search(text, threshold=0.55, top_k=3)
+    return jsonify({"success": True, "data": tips})
+
 
 # ─── API: Admin & System ───────────────────────────────────────────
 
@@ -745,23 +756,25 @@ def api_admin_config():
 
 @app.route("/api/admin/backup", methods=["GET"])
 def api_admin_backup():
-    """Erstellt ein ZIP-Backup der wichtigsten Dateien."""
+    """Erstellt ein ZIP-Backup aller wichtigen Dateien inkl. Vektor-Wissensbasis."""
     import zipfile
     import io
-    
+
     memory_file = io.BytesIO()
-    files_to_backup = ["growmate.db", "botany_knowledge.db", "config.json"]
-    
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+
     try:
-        with zipfile.ZipFile(memory_file, 'w') as zf:
-            for filename in files_to_backup:
-                if os.path.exists(filename):
-                    zf.write(filename)
-        
+        with zipfile.ZipFile(memory_file, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            # Einzeldateien
+            for filename in ["growmate.db", "config.json", "knowledge_vectors.json"]:
+                filepath = os.path.join(base_dir, filename)
+                if os.path.exists(filepath):
+                    zf.write(filepath, arcname=filename)
+
         memory_file.seek(0)
         return send_file(
             memory_file,
-            mimetype='application/zip',
+            mimetype="application/zip",
             as_attachment=True,
             download_name=f"growmate_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         )
@@ -771,34 +784,57 @@ def api_admin_backup():
 
 
 @app.route("/api/admin/restore", methods=["POST"])
+@limiter.limit("5 per hour")
 def api_admin_restore():
-    """Stellt Daten aus einem ZIP-Backup wieder her (nur growmate.db, botany_knowledge.db, config.json)."""
+    """Stellt Daten aus einem ZIP-Backup wieder her."""
     import zipfile
-    
-    if 'file' not in request.files:
+
+    if "file" not in request.files:
         return jsonify({"success": False, "message": "Keine Datei hochgeladen"}), 400
-        
-    file = request.files['file']
-    if file.filename == '':
+
+    file = request.files["file"]
+    if not file.filename:
         return jsonify({"success": False, "message": "Keine Datei ausgewählt"}), 400
-        
-    if file and file.filename.endswith('.zip'):
-        try:
-            with zipfile.ZipFile(file) as zf:
-                # Sicherheitscheck: Nur erlaubte Dateien extrahieren + Pfad-Validierung (Zip-Slip)
-                allowed_files = ["growmate.db", "botany_knowledge.db", "config.json"]
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                for name in zf.namelist():
-                    if name in allowed_files:
-                        target = os.path.join(base_dir, name)
-                        with open(target, "wb") as f_out:
-                            f_out.write(zf.read(name))
-            return jsonify({"success": True, "message": "Backup erfolgreich wiederhergestellt."})
-        except Exception as e:
-            logger.error(f"Restore Error: {e}")
-            return jsonify({"success": False, "message": str(e)}), 500
-        
-    return jsonify({"success": False, "message": "Ungültiges Dateiformat (nur .zip)"}), 400
+
+    if not file.filename.endswith(".zip"):
+        return jsonify({"success": False, "message": "Ungültiges Dateiformat (nur .zip)"}), 400
+
+    base_dir      = os.path.dirname(os.path.abspath(__file__))
+    real_base_dir = os.path.realpath(base_dir) + os.sep
+
+    try:
+        with zipfile.ZipFile(file) as zf:
+            # Zip-Slip-Schutz: kein Eintrag darf außerhalb base_dir landen
+            for name in zf.namelist():
+                target = os.path.realpath(os.path.join(base_dir, name))
+                if not target.startswith(real_base_dir):
+                    return jsonify({
+                        "success": False,
+                        "message": f"Sicherheitsfehler: Ungültiger Pfad '{name}' im Backup."
+                    }), 400
+
+            allowed_files = {"growmate.db", "config.json", "knowledge_vectors.json"}
+
+            for name in zf.namelist():
+                if name in allowed_files:
+                    target = os.path.join(base_dir, name)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
+                    with open(target, "wb") as f_out:
+                        f_out.write(zf.read(name))
+
+        # Config-Cache invalidieren damit neue config.json sofort gilt
+        from config import _invalidate_config_cache
+        _invalidate_config_cache()
+
+        # Analyzer-Cache leeren damit neue Vektordatei sofort genutzt wird
+        analyzer.invalidate_analysis_cache()
+
+        return jsonify({"success": True, "message": "Backup erfolgreich wiederhergestellt."})
+
+    except Exception as e:
+        logger.error(f"Restore Error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
 
 # ─── Main ──────────────────────────────────────────────────────────
 
