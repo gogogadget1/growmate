@@ -3,373 +3,536 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="GrowMate – Dein Growzelt-Monitor für Sensordaten, Energieverbrauch und Pflanzentagebuch">
+    <meta name="description" content="GrowMate – Dein Growzelt-Monitor">
     <title>GrowMate – Growzelt Monitor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        :root {
+            --bg-void: #040a06;
+            --bg-base: #070e09;
+            --bg-surface: #0c1510;
+            --bg-elevated: #111f16;
+            --bg-overlay: rgba(7,14,9,0.92);
+            --accent-bio: #2dff7e;
+            --accent-leaf: #1db954;
+            --accent-moss: #4a7c59;
+            --accent-water: #00d4aa;
+            --accent-sun: #f5c842;
+            --accent-heat: #ff6b35;
+            --accent-danger: #ff3d5a;
+            --border-faint: rgba(45,255,126,0.06);
+            --border-subtle: rgba(45,255,126,0.12);
+            --border-active: rgba(45,255,126,0.35);
+            --text-primary: #dff5e8;
+            --text-secondary: #7aad8a;
+            --text-muted: #3d5e47;
+            --text-ghost: #1e3328;
+            --danger: #ff3d5a;
+            --warning: #f5c842;
+        }
+
+        @keyframes biopulse { 0%,100% { opacity:0.6; } 50% { opacity:1; } }
+        @keyframes heartbeat { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.8); opacity:0.3; } }
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes slideInRight { from { transform: translateX(calc(100% + 24px)); } to { transform: translateX(0); } }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-void);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' opacity='0.025'%3E%3Cpath d='M0 0h100v100H0z' fill='none'/%3E%3Ccircle cx='50' cy='50' r='40' stroke='%232dff7e' stroke-width='1' fill='none'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background: radial-gradient(circle at center, rgba(45,255,126,0.02) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        h1, h2, h3, h4, h5, h6 { margin: 0; }
+        h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.8rem; letter-spacing: -0.03em; color: var(--text-primary); }
+        a { color: inherit; text-decoration: none; }
+        button { font-family: 'Inter', sans-serif; cursor: pointer; border: none; background: none; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--accent-moss); border-radius: 4px; }
+        ::selection { background: rgba(45,255,126,0.2); }
+        :focus-visible { outline: 2px solid rgba(45,255,126,0.5); outline-offset: 3px; }
+
+        @media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none !important; transition: none !important; } }
+
+        /* Typography utility */
+        .text-muted { color: var(--text-muted); font-size: 0.9rem; }
+        .text-sm { font-size: 0.8rem; }
+        .center { text-align: center; }
+
+        /* Layout */
+        .app-container { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 72px; background: linear-gradient(180deg, rgba(4,10,6,0.98) 0%, rgba(7,14,9,0.95) 100%);
+            border-right: 1px solid var(--border-faint); display: flex; flex-direction: column;
+            transition: width 300ms cubic-bezier(0.4,0,0.2,1); overflow: hidden; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100;
+        }
+        @media(min-width: 1024px) {
+            .sidebar:hover { width: 224px; }
+            .sidebar:hover .nav-link span:not(.nav-icon) { opacity: 1; transform: translateX(0); }
+            .sidebar:hover .logo-text, .sidebar:hover .version-badge { opacity: 1; }
+        }
+        .sidebar-header { padding: 24px 16px; display: flex; flex-direction: column; align-items: flex-start; }
+        .logo { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+        .logo-icon { font-size: 24px; }
+        .logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.2rem; opacity: 0; transition: opacity 300ms; }
+        .version-badge { font-size: 0.7rem; color: var(--accent-moss); opacity: 0; transition: opacity 300ms; margin-left: 36px; margin-top: 4px; }
+        
+        .nav-links { list-style: none; padding: 0 12px; margin: 20px 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .nav-link {
+            display: flex; align-items: center; gap: 16px; padding: 12px; border-radius: 14px;
+            color: var(--text-secondary); white-space: nowrap; font-weight: 500; font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase;
+            transition: all 200ms cubic-bezier(0.4,0,0.2,1); border-left: 2px solid transparent;
+        }
+        .nav-link span:not(.nav-icon) { opacity: 0; transform: translateX(-8px); transition: all 300ms cubic-bezier(0.4,0,0.2,1); }
+        .nav-icon { font-size: 24px; transition: transform 200ms; display: flex; align-items: center; justify-content: center; width: 24px; }
+        .nav-link:hover { background: rgba(45,255,126,0.04); color: var(--text-primary); }
+        .nav-link:hover .nav-icon { transform: scale(1.08); }
+        .nav-link.active { background: rgba(45,255,126,0.08); border-left-color: var(--accent-bio); color: var(--text-primary); }
+        .nav-link.active .nav-icon { filter: drop-shadow(0 0 4px var(--accent-bio)); }
+        
+        .sidebar-footer { padding: 20px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .scheduler-status { display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-bio); animation: heartbeat 2.4s ease-in-out infinite; }
+        .sidebar-settings-btn { font-size: 24px; cursor: pointer; transition: transform 200ms; border-radius: 8px; padding: 4px; display: flex; }
+        .sidebar-settings-btn:hover { background: rgba(45,255,126,0.08); transform: scale(1.1); }
+        .scheduler-status .status-text { opacity: 0; transition: opacity 300ms; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
+        @media(min-width: 1024px) { .sidebar:hover .status-text { opacity: 1; } }
+
+        /* Main Content */
+        .main-content { margin-left: 72px; padding: 32px 40px; flex: 1; position: relative; max-width: 1600px; }
+        
+        /* Mobile / Tablet Overrides */
+        .mobile-header { display: none; }
+        .bottom-nav { display: none; }
+
+        @media(max-width: 1023px) { 
+            .sidebar { width: 72px; }
+            .sidebar:hover { width: 72px; } /* Disable expand */
+        }
+        @media(max-width: 767px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; padding: 16px; padding-bottom: 90px; padding-top: 80px; }
+            .mobile-header {
+                display: flex; position: fixed; top: 0; left: 0; right: 0; height: 60px;
+                background: rgba(4,10,6,0.96); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-faint);
+                align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100;
+            }
+            .mobile-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--text-primary); }
+            .bottom-nav {
+                display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 68px;
+                background: rgba(4,10,6,0.96); backdrop-filter: blur(20px); border-top: 1px solid var(--border-faint);
+                align-items: center; justify-content: space-around; z-index: 100; padding: 0 8px;
+            }
+            .bnav-link { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-secondary); padding: 8px; border-radius: 12px; position:relative;}
+            .bnav-link .icon { font-size: 24px; transition: transform 200ms; }
+            .bnav-link.active .icon { filter: drop-shadow(0 0 4px var(--accent-bio)); transform: translateY(-2px); }
+            .bnav-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent-bio); position: absolute; bottom: 4px; opacity: 0; transition: opacity 200ms; }
+            .bnav-link.active .bnav-dot { opacity: 1; }
+        }
+
+        /* Glassmorphism Cards */
+        .glass {
+            background: linear-gradient(135deg, rgba(12,21,16,0.9) 0%, rgba(7,14,9,0.75) 100%);
+            backdrop-filter: blur(32px) saturate(200%) brightness(1.1);
+            -webkit-backdrop-filter: blur(32px) saturate(200%) brightness(1.1);
+            border: 1px solid var(--border-faint);
+            box-shadow: 0 0 0 1px var(--border-faint), 0 16px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(45,255,126,0.05);
+            border-radius: 20px;
+            transition: all 200ms cubic-bezier(0.4,0,0.2,1);
+        }
+        .glass.clickable:hover {
+            transform: translateY(-4px); box-shadow: 0 0 24px rgba(45,255,126,0.08), 0 16px 48px rgba(0,0,0,0.6); border-color: var(--border-subtle); cursor: pointer;
+        }
+
+        .card-header { padding: 16px 24px; border-bottom: 1px solid var(--border-faint); font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); display:flex; justify-content: space-between; align-items: center; }
+        .card-body { padding: 24px; }
+        .card-footer { padding: 16px 24px; border-top: 1px solid var(--border-faint); display:flex; justify-content:space-between; align-items:center; }
+
+        /* Page Transitions */
+        .page { display: none; }
+        .page.active { display: block; }
+        .page-enter { animation: pageEnter 220ms cubic-bezier(0.4,0,0.2,1) forwards; }
+        .page-exit { animation: pageExit 220ms cubic-bezier(0.4,0,0.2,1) forwards; }
+        @keyframes pageEnter { from { opacity: 0; transform: translateY(16px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes pageExit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-12px) scale(0.98); } }
+
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-surface), var(--bg-elevated), var(--bg-surface));
+            background-size: 200%;
+            animation: shimmer 1.6s infinite;
+            border-radius: 10px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 16px; border-radius: 12px; font-weight: 500; font-family: 'Inter', sans-serif; font-size: 0.9rem;
+            transition: all 200ms; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:active { transform: scale(0.95); transition-duration: 80ms; }
+        .btn-primary { background: rgba(45,255,126,0.1); color: var(--accent-bio); border: 1px solid rgba(45,255,126,0.2); }
+        .btn-primary:hover { background: rgba(45,255,126,0.15); box-shadow: 0 0 16px rgba(45,255,126,0.25); }
+        .btn-outline { background: transparent; color: var(--text-primary); border: 1px solid var(--border-subtle); }
+        .btn-outline:hover { background: rgba(255,255,255,0.03); border-color: var(--border-active); }
+        
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;}
+
+        /* Dashboard Specific */
+        .hero-banner { height: 100px; display: flex; justify-content: space-between; align-items: center; padding: 0 32px; margin-bottom: 24px; }
+        .hero-clock { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .hero-score-wrapper { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .health-gauge { width: 56px; height: 56px; }
+        .health-gauge circle.bg { stroke: var(--bg-elevated); stroke-width: 4; fill: none; }
+        .health-gauge circle.progress { stroke: var(--accent-bio); stroke-width: 4; fill: none; stroke-linecap: round; transition: stroke-dasharray 1s ease-out, stroke 1s; }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 32px; }
+        .sensor-card .main-val-container { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+        .sensor-card .main-val {
+            font-family: 'Space Grotesk', sans-serif; font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 20px currentColor; animation: biopulse 4s ease-in-out infinite; transition: color 800ms;
+        }
+        .sensor-card .unit { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; }
+        .inline-sparkline { height: 48px; width: 100%; }
+        .status-badge { padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+
+        .energy-scroll { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x mandatory; margin-bottom: 32px; }
+        .energy-card { min-width: 200px; scroll-snap-align: start; flex-shrink: 0; }
+        
+        /* Analyse specific */
+        .controls-row { display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .pill-group { display: flex; background: var(--bg-surface); border-radius: 12px; padding: 4px; border: 1px solid var(--border-faint); }
+        .pill-btn { padding: 6px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); transition: all 200ms; }
+        .pill-btn.active { background: var(--accent-bio); color: #000; box-shadow: 0 2px 8px rgba(45,255,126,0.3); }
+        .chip-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .chip { padding: 6px 12px; border-radius: 12px; background: var(--bg-elevated); border: 1px solid var(--border-faint); font-size: 0.85rem; cursor: pointer; transition: all 200ms; display:flex; align-items:center; gap:6px;}
+        .chip.active { border-color: var(--accent-bio); box-shadow: 0 0 8px rgba(45,255,126,0.2); }
+        .main-chart-wrapper { height: 340px; width: 100%; position: relative; margin-bottom: 24px;}
+        .stat-cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        @media(max-width: 767px) { .stat-cards-row { grid-template-columns: repeat(2, 1fr); } }
+
+        /* Advisor card */
+        .advisor-card { border-top: 2px solid var(--accent-water); }
+        .advisor-content { text-align: center; padding: 20px 0; }
+        .advisor-text { font-size: 1.1rem; line-height: 1.7; color: var(--text-secondary); }
+
+        /* Devices */
+        .devices-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-bottom: 32px; }
+        .vent-card { border-left: 3px solid var(--accent-water); grid-column: 1 / -1; display:flex; flex-direction: column;}
+        @media(min-width: 768px) { .vent-card { flex-direction: row; gap: 24px;} .vent-card > div {flex: 1;} }
+        .vent-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+        .vent-icon { font-size: 48px; display: inline-block; }
+        .vent-icon.spinning { animation: spin-slow 2s linear infinite; }
+
+        /* Diary */
+        .diary-container { display: flex; gap: 24px; align-items: flex-start; }
+        .diary-sidebar { width: 280px; flex-shrink: 0; }
+        .diary-main { flex: 1; }
+        @media(max-width: 767px) { .diary-container { flex-direction: column; } .diary-sidebar { width: 100%; } }
+        .plant-card { border: 1px solid var(--border-faint); padding: 12px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: all 200ms; }
+        .plant-card.active { border-color: var(--accent-bio); box-shadow: 0 0 12px rgba(45,255,126,0.1); }
+        
+        .timeline { position: relative; padding-left: 24px; }
+        .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--border-subtle); }
+        .timeline-item { position: relative; margin-bottom: 24px; }
+        .timeline-dot { position: absolute; left: -24px; top: 16px; width: 18px; height: 18px; border-radius: 50%; background: var(--bg-elevated); border: 2px solid var(--border-active); display: flex; align-items: center; justify-content: center; font-size: 10px; z-index: 2; }
+
+        /* Forms / Settings */
+        .settings-container { max-width: 680px; margin: 0 auto; }
+        .form-group { margin-bottom: 20px; position: relative; }
+        .form-input { 
+            width: 100%; padding: 12px 12px 12px 0; background: transparent; border: none; border-bottom: 1px solid var(--border-faint);
+            color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 1rem; transition: all 200ms; border-radius: 0;
+        }
+        .form-input:focus { outline: none; border-bottom-color: var(--accent-bio); box-shadow: 0 2px 0 var(--accent-bio); }
+        .form-label { position: absolute; top: 12px; left: 0; color: var(--text-muted); transition: all 200ms ease; pointer-events: none; }
+        .form-input:focus ~ .form-label, .form-input:not(:placeholder-shown) ~ .form-label { transform: translateY(-20px) scale(0.85); transform-origin: left top; color: var(--accent-bio); }
+        
+        /* Switch */
+        .switch-wrap { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .switch { position: relative; width: 44px; height: 24px; background: var(--bg-elevated); border-radius: 12px; border: 1px solid var(--border-faint); transition: all 200ms; }
+        .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        input[type="checkbox"] { display: none; }
+        input[type="checkbox"]:checked + .switch { background: var(--accent-bio); }
+        input[type="checkbox"]:checked + .switch::after { transform: translateX(20px); }
+
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 200; opacity: 0; transition: opacity 200ms; }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-content { width: 100%; max-width: 500px; transform: scale(0.92) translateY(16px); opacity: 0; transition: all 280ms cubic-bezier(0.34,1.56,0.64,1); }
+        .modal-overlay.active .modal-content { transform: scale(1) translateY(0); opacity: 1; }
+
+        /* Toasts */
+        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 12px; }
+        .toast { width: 300px; padding: 16px; border-left: 3px solid var(--accent-bio); animation: slideInRight 300ms cubic-bezier(0.34,1.56,0.64,1); position:relative; overflow:hidden;}
+        .toast-prog { position:absolute; bottom:0; left:0; height:2px; background: var(--accent-bio); width:100%; }
+
+        /* Stagger Entrance */
+        .stagger-item { opacity: 0; transform: translateY(24px) scale(0.96); animation: staggerIn 500ms cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        @keyframes staggerIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+        
+        .global-error { margin-bottom:24px; border-left: 4px solid var(--danger); background: rgba(255,61,90,0.1); color: var(--danger); padding:16px; border-radius:12px; display:none; align-items:center; gap:12px; }
+    </style>
 </head>
 <body>
-    <!-- ─── Sidebar Navigation ─────────────────────────────────── -->
+    <canvas id="bg-particles" style="position: fixed; inset: 0; z-index: 0; pointer-events: none;"></canvas>
+
+    <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo">
                 <span class="logo-icon">🌱</span>
                 <span class="logo-text">GrowMate</span>
             </div>
-            <div style="font-size: 0.75rem; color: #4caf50; text-align: center; margin-top: 4px; font-weight: 500;">Version 1.1 (Dev-Environment)</div>
+            <div class="version-badge">v2.0</div>
         </div>
         <ul class="nav-links">
-            <li>
-                <a href="#dashboard" class="nav-link active" data-page="dashboard" id="nav-dashboard">
-                    <span class="nav-icon">📊</span>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-            <li>
-                <a href="#history" class="nav-link" data-page="history" id="nav-history">
-                    <span class="nav-icon">📈</span>
-                    <span>Verlauf</span>
-                </a>
-            </li>
-            <li>
-                <a href="#devices" class="nav-link" data-page="devices" id="nav-devices">
-                    <span class="nav-icon">🔌</span>
-                    <span>Geräte</span>
-                </a>
-            </li>
-            <li>
-                <a href="#diary" class="nav-link" data-page="diary" id="nav-diary">
-                    <span class="nav-icon">📓</span>
-                    <span>Tagebuch</span>
-                </a>
-            </li>
-            <li>
-                <a href="#advisor" class="nav-link" data-page="advisor" id="nav-advisor">
-                    <span class="nav-icon">🧠</span>
-                    <span>Ratgeber</span>
-                </a>
-            </li>
-            <li>
-                <a href="#settings" class="nav-link" data-page="settings" id="nav-settings">
-                    <span class="nav-icon">⚙️</span>
-                    <span>Einstellungen</span>
-                </a>
-            </li>
+            <li><a href="#dashboard" class="nav-link active" data-page="dashboard" id="nav-dashboard"><span class="nav-icon">🌿</span><span>Dashboard</span></a></li>
+            <li><a href="#analyse" class="nav-link" data-page="analyse" id="nav-analyse"><span class="nav-icon">📡</span><span>Analyse</span></a></li>
+            <li><a href="#devices" class="nav-link" data-page="devices" id="nav-devices"><span class="nav-icon">🔌</span><span>Geräte</span></a></li>
+            <li><a href="#diary" class="nav-link" data-page="diary" id="nav-diary"><span class="nav-icon">📓</span><span>Tagebuch</span></a></li>
         </ul>
         <div class="sidebar-footer">
             <div class="scheduler-status" id="scheduler-indicator">
                 <span class="status-dot"></span>
                 <span class="status-text">Polling aktiv</span>
             </div>
+            <a href="#settings" class="sidebar-settings-btn" data-page="settings" id="nav-settings" title="Einstellungen">⚙️</a>
         </div>
     </nav>
+    <a href="#advisor" data-page="advisor" id="nav-advisor" style="display:none;"></a>
+    <a href="#history" data-page="history" id="nav-history" style="display:none;"></a>
 
-    <!-- ─── Mobile Header ──────────────────────────────────────── -->
+    <!-- Mobile Header & Nav -->
     <header class="mobile-header" id="mobile-header">
-        <button class="menu-toggle" id="menu-toggle" aria-label="Menü öffnen">
-            <span></span><span></span><span></span>
-        </button>
         <span class="mobile-title">🌱 GrowMate</span>
-        {% if demo_active %}
-        <span class="badge demo-badge" style="margin-right: 10px;">🧪 Demo</span>
-        {% endif %}
-        <button class="refresh-btn" id="mobile-refresh-btn" title="Daten aktualisieren">🔄</button>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <button class="refresh-btn" id="mobile-refresh-btn" style="font-size:20px;">🔄</button>
+            <a href="#settings" data-page="settings" style="font-size:20px;">⚙️</a>
+        </div>
     </header>
+    <nav class="bottom-nav">
+        <a href="#dashboard" class="bnav-link active" data-page="dashboard"><span class="icon">🌿</span><span class="bnav-dot"></span></a>
+        <a href="#analyse" class="bnav-link" data-page="analyse"><span class="icon">📡</span><span class="bnav-dot"></span></a>
+        <a href="#devices" class="bnav-link" data-page="devices"><span class="icon">🔌</span><span class="bnav-dot"></span></a>
+        <a href="#diary" class="bnav-link" data-page="diary"><span class="icon">📓</span><span class="bnav-dot"></span></a>
+    </nav>
 
-    <!-- ─── Main Content ───────────────────────────────────────── -->
+    <!-- Main Content -->
     <main class="main-content" id="main-content">
-        
-        <!-- ══════ GLOBAL ERROR BANNER ══════ -->
-        <div id="global-error-banner" style="display: none; background-color: rgba(239, 68, 68, 0.2); border-left: 4px solid var(--danger); padding: 12px 15px; margin: 15px 20px 0 20px; border-radius: 4px; font-weight: 500;">
-            <div style="display: flex; align-items: flex-start;">
-                <span style="margin-right: 10px; font-size: 1.2rem;">⚠️</span>
-                <div id="global-error-text" style="flex: 1;">Systemfehler...</div>
-            </div>
+        <div id="global-error-banner" class="global-error">
+            <span style="font-size:1.5rem;">⚠️</span>
+            <div id="global-error-text" style="flex:1;">Systemfehler...</div>
         </div>
 
-        <!-- ══════ DASHBOARD ══════ -->
+        <!-- DASHBOARD -->
         <section class="page active" id="page-dashboard">
+            <div class="glass hero-banner stagger-item" style="animation-delay: 0ms;">
+                <div class="hero-clock" id="hero-clock">00:00:00</div>
+                <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.2rem;">Hauptzelt</div>
+                <div class="hero-score-wrapper">
+                    <svg class="health-gauge" viewBox="0 0 36 36">
+                        <path class="bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke-dasharray="85, 100" />
+                    </svg>
+                    <span class="text-sm text-muted">Zustand</span>
+                </div>
+            </div>
+            
             <div class="page-header">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <h1>Dashboard</h1>
-                    {% if demo_active %}
-                    <span class="badge demo-badge">🧪 Demo-Modus aktiv</span>
-                    {% endif %}
-                </div>
-                <div class="page-actions">
-                    <button class="btn btn-outline" id="btn-manual-poll" title="Sensoren jetzt abfragen">
-                        🔄 Jetzt aktualisieren
-                    </button>
-                </div>
+                <h2>Sensoren</h2>
+                <button class="btn btn-outline" id="btn-manual-poll">🔄 Aktualisieren</button>
+            </div>
+            
+            <div class="dashboard-grid" id="sensor-cards">
+                <div class="glass card-body skeleton" style="height: 200px;" id="card-loading"></div>
             </div>
 
-            <!-- Sensor-Karten -->
-            <div class="card-grid" id="sensor-cards">
-                <div class="card glass loading-card" id="card-loading">
-                    <div class="card-body center">
-                        <div class="spinner"></div>
-                        <p>Lade Sensordaten...</p>
-                    </div>
-                </div>
+            <!-- Hidden old canvas containers so chart.js doesn't error on fetch -->
+            <div style="display:none;">
+                <canvas id="chart-temp-mini"></canvas>
+                <canvas id="chart-hum-mini"></canvas>
             </div>
 
-            <!-- Mini-Charts -->
-            <div class="chart-row" id="dashboard-charts">
-                <div class="card glass">
-                    <div class="card-header">
-                        <h3>🌡️ Temperatur (24h)</h3>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="chart-temp-mini"></canvas>
-                    </div>
-                </div>
-                <div class="card glass">
-                    <div class="card-header">
-                        <h3>💧 Luftfeuchtigkeit (24h)</h3>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="chart-hum-mini"></canvas>
-                    </div>
-                </div>
+            <h2>⚡ Energieverbrauch</h2>
+            <div class="energy-scroll" id="energy-cards" style="margin-top:16px;">
+                <div class="glass card-body skeleton energy-card" style="height: 120px;"></div>
             </div>
 
-            <!-- Energie-Übersicht -->
-            <div class="section-header">
-                <h2>⚡ Energieverbrauch</h2>
-            </div>
-            <div class="card-grid" id="energy-cards">
-                <!-- Dynamisch befüllt -->
-            </div>
-
-            <!-- Letzte Tagebucheinträge -->
-            <div class="section-header">
+            <div class="page-header">
                 <h2>📓 Letzte Einträge</h2>
-                <a href="#diary" class="link-btn" data-page="diary">Alle anzeigen →</a>
+                <a href="#diary" class="btn btn-outline" data-page="diary">Alle zeigen →</a>
             </div>
-            <div class="diary-preview" id="diary-preview">
-                <!-- Dynamisch befüllt -->
-            </div>
+            <div id="diary-preview" style="display:flex; flex-direction:column; gap:12px;"></div>
         </section>
 
-        <!-- ══════ VERLAUF ══════ -->
-        <section class="page" id="page-history">
+        <!-- ANALYSE (historically History & Advisor) -->
+        <section class="page" id="page-analyse">
             <div class="page-header">
-                <h1>📈 Verlauf</h1>
-                <div class="page-actions" style="display: flex; gap: 8px; align-items: center;">
-                    <span style="font-size: 0.85rem; color: var(--text-muted);">Stunden:</span>
-                    <input type="number" id="history-timerange" class="input-styled" value="24" min="1" max="1000" style="width: 80px;">
-                    <button class="btn btn-outline btn-sm" id="btn-refresh-history">🔄</button>
+                <h1>📡 Analyse & Diagnose</h1>
+            </div>
+            <div class="controls-row">
+                <div class="pill-group">
+                    <button class="pill-btn active" data-range="1">1h</button>
+                    <button class="pill-btn" data-range="6">6h</button>
+                    <button class="pill-btn" data-range="24">24h</button>
+                    <button class="pill-btn" data-range="168">7d</button>
+                    <button class="pill-btn" data-range="720">30d</button>
+                    <input type="hidden" id="history-timerange" value="24">
+                </div>
+                <div class="chip-group">
+                    <div class="chip active data-t" data-dataset="temp">🌡️ Temp</div>
+                    <div class="chip active data-h" data-dataset="hum">💧 Feuchte</div>
+                    <div class="chip data-e" data-dataset="power">⚡ Energie</div>
+                    <div class="chip data-p" data-dataset="height">🌱 Höhe</div>
+                </div>
+                <button id="btn-refresh-history" class="btn btn-outline">🔄 Refetch</button>
+            </div>
+            
+            <div class="glass card-body main-chart-wrapper">
+                <canvas id="main-analyse-chart"></canvas>
+                <!-- Hidden old canvases for history compat -->
+                <div style="display:none;">
+                    <canvas id="chart-temp-history"></canvas>
+                    <canvas id="chart-hum-history"></canvas>
+                    <canvas id="chart-energy-history"></canvas>
+                    <canvas id="chart-plant-height"></canvas>
                 </div>
             </div>
 
-            <div class="chart-container">
-                <div class="card glass">
-                    <div class="card-header"><h3>🌡️ Temperaturverlauf</h3></div>
-                    <div class="card-body chart-large">
-                        <canvas id="chart-temp-history"></canvas>
-                    </div>
-                </div>
-                <div class="card glass">
-                    <div class="card-header"><h3>💧 Feuchtigkeitsverlauf</h3></div>
-                    <div class="card-body chart-large">
-                        <canvas id="chart-hum-history"></canvas>
-                    </div>
-                </div>
-                <div class="card glass">
-                    <div class="card-header"><h3>⚡ Energieverbrauch</h3></div>
-                    <div class="card-body chart-large">
-                        <canvas id="chart-energy-history"></canvas>
-                    </div>
-                </div>
-                <div class="card glass">
-                    <div class="card-header"><h3>🌱 Pflanzenhöhe</h3></div>
-                    <div class="card-body chart-large">
-                        <canvas id="chart-plant-height"></canvas>
-                    </div>
+            <div class="stat-cards-row">
+                <div class="glass card-body center"><div class="text-muted">Min</div><div style="font-size:1.5rem; font-weight:700; margin-top:8px;">18.2°</div></div>
+                <div class="glass card-body center"><div class="text-muted">Max</div><div style="font-size:1.5rem; font-weight:700; margin-top:8px;">26.5°</div></div>
+                <div class="glass card-body center"><div class="text-muted">Ø Avg</div><div style="font-size:1.5rem; font-weight:700; margin-top:8px;">22.4°</div></div>
+                <div class="glass card-body center"><div class="text-muted">Trend</div><div style="font-size:1.5rem; font-weight:700; margin-top:8px; color:var(--accent-bio)">↗ +1.2°</div></div>
+            </div>
+
+            <div class="glass advisor-card">
+                <div class="card-header"><h3>🧠 Systemhinweis</h3></div>
+                <div class="card-body advisor-content">
+                    <div id="advisor-tips" class="advisor-text">Lade botanisches Wissen...</div>
+                    <span class="status-badge" style="background: rgba(45,255,126,0.1); color: var(--accent-bio); margin-top: 16px; display:inline-block;">Allgemein</span>
                 </div>
             </div>
         </section>
 
-        <!-- ══════ GERÄTE ══════ -->
+        <!-- DEVICES -->
         <section class="page" id="page-devices">
             <div class="page-header">
                 <h1>🔌 Geräte</h1>
-                <div class="page-actions">
-                    <button class="btn btn-primary" id="btn-add-device">+ Gerät hinzufügen</button>
+                <button class="btn btn-primary" id="btn-add-device">+ hinzufügen</button>
+            </div>
+            <div class="devices-grid" id="device-cards">
+                <!-- Vent Blueprint -->
+                <div class="glass vent-card">
+                    <div class="card-body">
+                        <div class="vent-hero">
+                            <span class="vent-icon">💨</span>
+                            <div>
+                                <h3 style="font-size:1.4rem;">Abluft Vent</h3>
+                                <div id="ventilation-status" class="text-muted" style="margin-top:4px;">Status: Standby</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-top:16px;"><span>Aktivierung:</span> <label class="switch-wrap"><input type="checkbox"><span class="switch"></span> Auto</label></div>
+                    </div>
                 </div>
             </div>
-            <div class="card-grid device-grid" id="device-cards">
-                <!-- Dynamisch befüllt -->
-            </div>
-
-            <!-- Add Device Modal -->
+            
             <div class="modal-overlay" id="modal-add-device">
-                <div class="modal glass">
-                    <div class="modal-header">
-                        <h3>Neues Gerät hinzufügen</h3>
-                        <button class="modal-close" id="modal-close-device">&times;</button>
-                    </div>
-                    <form id="form-add-device" class="modal-body">
+                <div class="glass modal-content">
+                    <div class="card-header"><h3>Neues Gerät</h3><button id="modal-close-device" class="btn text-muted">✕</button></div>
+                    <form id="form-add-device" class="card-body">
+                        <div class="form-group"><input type="text" id="device-name" class="form-input" placeholder=" " required><label class="form-label" for="device-name">Name</label></div>
                         <div class="form-group">
-                            <label for="device-name">Name</label>
-                            <input type="text" id="device-name" placeholder="z.B. Lüfter-Steckdose" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="device-type">Typ</label>
-                            <select id="device-type" required>
-                                <option value="tapo_plug">Tapo Steckdose (P100/P110)</option>
-                                <option value="govee_ble">Govee BLE Sensor</option>
-                                <option value="tapo_sensor">Tapo Sensor</option>
+                            <select id="device-type" class="form-input" required>
+                                <option value="tapo_plug">Tapo Steckdose</option><option value="govee_ble">Govee BLE Sensor</option><option value="tapo_sensor">Tapo Sensor</option>
                             </select>
+                            <label class="form-label">Typ</label>
                         </div>
-                        <div class="form-group" id="group-device-ip">
-                            <label for="device-ip">IP-Adresse</label>
-                            <input type="text" id="device-ip" placeholder="192.168.1.100">
-                        </div>
-                        <div class="form-group" id="group-device-mac">
-                            <label for="device-mac">MAC-Adresse (optional)</label>
-                            <input type="text" id="device-mac" placeholder="AA:BB:CC:DD:EE:FF">
-                        </div>
-                        <div class="modal-footer">
+                        <div class="form-group" id="group-device-ip"><input type="text" id="device-ip" class="form-input" placeholder=" "><label class="form-label">IP-Adresse</label></div>
+                        <div class="form-group" id="group-device-mac"><input type="text" id="device-mac" class="form-input" placeholder=" "><label class="form-label">MAC (optional)</label></div>
+                        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">
                             <button type="button" class="btn btn-outline" id="btn-cancel-device">Abbrechen</button>
-                            <button type="submit" class="btn btn-primary">Hinzufügen</button>
+                            <button type="submit" class="btn btn-primary">Speichern</button>
                         </div>
                     </form>
                 </div>
             </div>
         </section>
 
-        <!-- ══════ TAGEBUCH ══════ -->
+        <!-- DIARY -->
         <section class="page" id="page-diary">
             <div class="page-header">
-                <h1>📓 Pflanzentagebuch</h1>
-                <div class="page-actions" style="display: flex; gap: 10px;">
+                <h1>📓 Tagebuch</h1>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button class="btn btn-primary" id="btn-new-plant-care">🌱 Pflege</button>
-                    <button class="btn btn-primary" id="btn-new-water">💧 Bewässerung</button>
-                    <button class="btn btn-outline" id="btn-new-note">📝 Sonstiges</button>
+                    <button class="btn btn-primary" id="btn-new-water">💧 Wasser</button>
+                    <button class="btn btn-outline" id="btn-new-note">📝 Notiz</button>
                 </div>
             </div>
-
-            <div class="diary-layout">
-                <!-- Linke Spalte: Pflanzen & Archiv -->
-                <div class="diary-sidebar">
-                    <div class="card glass">
-                        <div class="card-header">
-                            <h3>🌱 Meine Pflanzen</h3>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="toggle-show-archived">
-                                <span class="toggle-slider"></span>
-                                <small>Archiv anzeigen</small>
-                            </label>
-                        </div>
-                        <div class="card-body" id="diary-plant-list">
-                            <!-- Dynamisch befüllt mit Pflanzen-Karten -->
-                        </div>
+            <div class="diary-container">
+                <div class="diary-sidebar glass card-body">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 class="text-muted" style="text-transform:uppercase; font-size:0.85rem; letter-spacing:0.06em;">Pflanzen</h3>
+                        <label class="switch-wrap"><input type="checkbox" id="toggle-show-archived"><span class="switch" style="transform:scale(0.8)"></span></label>
                     </div>
+                    <div id="diary-plant-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
-
-                <!-- Rechte Spalte: Feed -->
                 <div class="diary-main">
-                    <div class="diary-filters-row card glass">
-                        <select id="diary-plant-filter" class="select-styled">
-                            <option value="">Alle Pflanzen</option>
-                        </select>
-                        <select id="diary-filter" class="select-styled">
-                            <option value="">Alle Kategorien</option>
-                        </select>
+                    <div class="glass card-body" style="padding:16px; margin-bottom:24px; display:flex; gap:16px;">
+                        <select id="diary-plant-filter" class="form-input" style="flex:1;"><option value="">Alle Pflanzen</option></select>
+                        <select id="diary-filter" class="form-input" style="flex:1;"><option value="">Alle Kategorien</option></select>
                     </div>
-                    <div class="diary-entries" id="diary-entries">
-                        <!-- Dynamisch befüllt -->
-                    </div>
+                    <div class="timeline" id="diary-entries"></div>
                 </div>
             </div>
-
-            <!-- New / Edit Entry Modal -->
+            
             <div class="modal-overlay" id="modal-diary">
-                <div class="modal glass modal-large">
-                    <div class="modal-header">
-                        <h3 id="diary-modal-title">Neuer Eintrag</h3>
-                        <button class="modal-close" id="modal-close-diary">&times;</button>
-                    </div>
-                    <form id="form-diary" class="modal-body">
+                <div class="glass modal-content" style="max-width: 600px;">
+                    <div class="card-header"><h3 id="diary-modal-title">Eintrag</h3><button id="modal-close-diary" class="btn text-muted">✕</button></div>
+                    <form id="form-diary" class="card-body">
                         <input type="hidden" id="diary-edit-id">
-                        <div class="form-row">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                            <div class="form-group"><input type="date" id="diary-date" class="form-input" placeholder=" " required><label class="form-label">Datum</label></div>
+                            <div class="form-group"><input type="text" id="diary-type" class="form-input" list="diary-categories" placeholder=" " required><label class="form-label">Kategorie</label></div>
                             <div class="form-group">
-                                <label for="diary-date">Datum</label>
-                                <input type="date" id="diary-date" required>
+                                <select id="diary-phase" class="form-input">
+                                    <option value="">Nicht angegeben</option><option value="Keimung">🌱 Keimung</option><option value="Sämling">🌿 Sämling</option>
+                                    <option value="Vegetativ">🍀 Vegetativ</option><option value="Blüte">🌸 Blüte</option><option value="Ernte">✂️ Ernte</option>
+                                </select><label class="form-label">Phase</label>
                             </div>
                             <div class="form-group">
-                                <label for="diary-type">Kategorie</label>
-                                <input type="text" id="diary-type" list="diary-categories" placeholder="z.B. Düngung" required>
-                                <datalist id="diary-categories">
-                                    <option value="Düngung">
-                                    <option value="Bewässerung">
-                                    <option value="Messung">
-                                    <option value="Umtopfen">
-                                    <option value="Beschneidung">
-                                    <option value="Schädlinge">
-                                    <option value="Sonstiges">
-                                </datalist>
+                                <select id="diary-health" class="form-input">
+                                    <option value="">Nicht angegeben</option><option value="Exzellent">🌟 Exzellent</option><option value="Gut">✅ Gut</option>
+                                </select><label class="form-label">Zustand</label>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="diary-phase">Pflanzenphase</label>
-                                <select id="diary-phase">
-                                    <option value="">Nicht angegeben</option>
-                                    <option value="Keimung">🌱 Keimung</option>
-                                    <option value="Sämling">🌿 Sämling</option>
-                                    <option value="Vegetativ">🍀 Vegetativ</option>
-                                    <option value="Blüte">🌸 Blüte</option>
-                                    <option value="Ernte">✂️ Ernte</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="diary-health">Zustand</label>
-                                <select id="diary-health">
-                                    <option value="">Nicht angegeben</option>
-                                    <option value="Exzellent">🌟 Exzellent</option>
-                                    <option value="Gut">✅ Gut</option>
-                                    <option value="Stabil">⚖️ Stabil</option>
-                                    <option value="Problematisch">⚠️ Problematisch</option>
-                                    <option value="Krank">🤒 Krank/Mangel</option>
-                                </select>
-                            </div>
+                        <div class="form-group"><input type="text" id="diary-title" class="form-input" placeholder=" " required><label class="form-label">Titel</label></div>
+                        <div class="form-group"><input type="text" id="diary-plant" class="form-input" list="known-plants" placeholder=" " required><label class="form-label">Pflanze</label></div>
+                        <div class="form-group"><textarea id="diary-content" class="form-input" rows="3" placeholder=" "></textarea><label class="form-label">Beschreibung</label></div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+                            <div class="form-group"><input type="number" id="diary-height" class="form-input" step="0.5" placeholder=" "><label class="form-label">Höhe (cm)</label></div>
+                            <div class="form-group"><input type="number" id="diary-water" class="form-input" step="10" placeholder=" "><label class="form-label">Wasser (ml)</label></div>
+                            <div class="form-group"><input type="number" id="diary-ph" class="form-input" step="0.1" placeholder=" "><label class="form-label">pH</label></div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group" style="flex: 2;">
-                                <label for="diary-title">Titel</label>
-                                <input type="text" id="diary-title" placeholder="Was ist passiert?" required>
-                            </div>
-                            <div class="form-group" style="flex: 1;">
-                                <label for="diary-plant">Pflanze</label>
-                                <input type="text" id="diary-plant" list="known-plants" placeholder="z.B. Tomate 1" required>
-                                <datalist id="known-plants"></datalist>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="diary-content">Beschreibung</label>
-                            <textarea id="diary-content" rows="5" placeholder="Detaillierte Notizen..."></textarea>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="diary-height">Pflanzenhöhe (cm)</label>
-                                <input type="number" id="diary-height" step="0.5" min="0" placeholder="z.B. 15.5">
-                            </div>
-                            <div class="form-group">
-                                <label for="diary-water">Gießmenge (ml)</label>
-                                <input type="number" id="diary-water" step="10" min="0" placeholder="z.B. 500">
-                            </div>
-                            <div class="form-group">
-                                <label for="diary-ph">pH-Wert</label>
-                                <input type="number" id="diary-ph" step="0.1" min="0" max="14" placeholder="z.B. 6.5">
-                            </div>
-                        </div>
-                        <div class="modal-footer">
+                        <datalist id="diary-categories"><option value="Düngung"><option value="Bewässerung"><option value="Messung"><option value="Umtopfen"></datalist>
+                        <datalist id="known-plants"></datalist>
+                        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:16px;">
                             <button type="button" class="btn btn-outline" id="btn-cancel-diary">Abbrechen</button>
                             <button type="submit" class="btn btn-primary" id="btn-save-diary">Speichern</button>
                         </div>
@@ -378,185 +541,278 @@
             </div>
         </section>
 
-        <!-- ══════ EINSTELLUNGEN ══════ -->
+        <!-- SETTINGS -->
         <section class="page" id="page-settings">
-            <div class="page-header">
-                <h1>⚙️ Einstellungen</h1>
-            </div>
-
-            <div class="settings-grid">
+            <div class="settings-container">
+                <div class="page-header"><h1>⚙️ Einstellungen</h1></div>
                 
-                <div class="card glass full-width" style="border-left: 4px solid var(--accent); background: rgba(76, 175, 80, 0.05); grid-column: 1 / -1;">
-                    <div class="card-body">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                            <div>
-                                <h2 style="margin: 0 0 5px 0;">🩺 System-Diagnose</h2>
-                                <p class="text-muted" style="margin: 0;">Probleme beim Auslesen der Sensoren? Starte die automatische Fehleranalyse (Bluetooth & Netzwerk).</p>
-                            </div>
-                            <button class="btn btn-outline" id="btn-run-diagnostics">🔍 Analyse starten</button>
-                        </div>
-                        <div id="diagnostics-results" style="display: none; margin-top: 20px; padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                            <!-- Diagnostic results injected here -->
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card glass">
-                    <div class="card-header"><h3>🌱 Pflanzenverwaltung</h3></div>
-                    <form id="form-add-plant" class="card-body">
-                        <div class="form-group">
-                            <label for="new-plant-name">Name der Pflanze</label>
-                            <input type="text" id="new-plant-name" placeholder="z.B. Northern Lights #1" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="new-plant-desc">Beschreibung</label>
-                            <textarea id="new-plant-desc" rows="2" placeholder="Sorte, Herkunft..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm">Pflanze anlegen</button>
+                <div class="glass card-body" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom:16px;">🌱 Pflanzenverwaltung</h3>
+                    <form id="form-add-plant">
+                        <div class="form-group"><input type="text" id="new-plant-name" class="form-input" placeholder=" " required><label class="form-label">Name</label></div>
+                        <div class="form-group"><textarea id="new-plant-desc" class="form-input" rows="1" placeholder=" "></textarea><label class="form-label">Beschreibung</label></div>
+                        <button type="submit" class="btn btn-primary">Anlegen</button>
                     </form>
                 </div>
 
-                <div class="card glass">
-                    <div class="card-header"><h3>🔄 Polling</h3></div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label for="setting-interval">Polling-Intervall (Minuten)</label>
-                            <input type="number" id="setting-interval" min="1" max="60" value="5">
-                        </div>
-                        <div class="form-group">
-                            <label for="setting-ble-duration">BLE Scan-Dauer (Sekunden)</label>
-                            <input type="number" id="setting-ble-duration" min="5" max="60" value="10">
-                        </div>
-                        <div class="scheduler-info" id="scheduler-info">
-                            <span class="status-dot active"></span>
-                            <span>Nächstes Polling: <strong id="next-poll-time">—</strong></span>
-                        </div>
+                <div class="glass card-body" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom:16px;">🔄 Polling</h3>
+                    <div class="form-group"><input type="number" id="setting-interval" class="form-input" min="1" max="60" value="5" placeholder=" "><label class="form-label">Intervall (Min)</label></div>
+                    <div class="form-group"><input type="number" id="setting-ble-duration" class="form-input" min="5" value="10" placeholder=" "><label class="form-label">BLE Scan (Sek)</label></div>
+                    <div id="scheduler-info" class="text-muted" style="margin-top:12px;">Nächstes: <strong id="next-poll-time">—</strong></div>
+                </div>
+
+                <div class="glass card-body" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom:16px;">🔌 Tapo Home</h3>
+                    <div class="form-group"><input type="email" id="setting-tapo-email" class="form-input" placeholder=" " autocomplete="off"><label class="form-label">E-Mail</label></div>
+                    <div class="form-group"><input type="password" id="setting-tapo-password" class="form-input" placeholder=" " autocomplete="new-password"><label class="form-label">Passwort</label></div>
+                    <button class="btn btn-outline" id="btn-test-tapo">Testen</button>
+                </div>
+
+                <div class="glass card-body" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom:16px;">💾 System & Backup</h3>
+                    <button class="btn btn-primary" id="btn-admin-backup" style="margin-bottom:16px;">📦 Backup erstellen</button>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <input type="file" id="restore-file" style="display:none;" accept=".zip">
+                        <button class="btn btn-outline" onclick="document.getElementById('restore-file').click()">📂 ZIP wählen</button>
+                        <span id="restore-filename" class="text-sm text-muted">Keine</span>
+                        <button class="btn btn-primary" id="btn-admin-restore" disabled>⏬ Restore</button>
                     </div>
                 </div>
 
-                <div class="card glass">
-                    <div class="card-body">
-                        <h2>🔌 Tapo Smart Home</h2>
-                        <p class="text-muted">Zugangsdaten für Tapo Steckdosen (P100/P110) und Hubs (H100).</p>
-                        <div class="form-group">
-                                <label for="setting-tapo-email" class="form-label">Tapo Account E-Mail</label>
-                            <input type="email" id="setting-tapo-email" class="form-control" placeholder="example@gogo.de" autocomplete="off">
-                        </div>
-                        <div class="mb-3">
-                            <label for="setting-tapo-password" class="form-label">Tapo Passwort</label>
-                            <input type="password" id="setting-tapo-password" class="form-control" autocomplete="off">
-                            <small class="text-muted">Wird nur lokal gespeichert.</small>
-                        </div>
-                        <button class="btn btn-outline" id="btn-test-tapo">🔄 Zugangsdaten testen</button>
+                <div class="glass card-body" style="margin-bottom:24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">🩺 Diagnose</h3>
+                        <button class="btn btn-outline" id="btn-run-diagnostics">🔍 Starten</button>
                     </div>
+                    <div id="diagnostics-results" style="display:none; margin-top:16px; font-family:monospace; font-size:0.85rem;"></div>
                 </div>
 
-                <div class="card glass full-width" style="border-left: 4px solid var(--accent);">
-                    <div class="card-body">
-                        <h2>💾 System & Backup</h2>
-                        <p class="text-muted">Sichere deine Grow-History und Einstellungen oder stelle sie wieder her.</p>
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 15px;">
-                            <div style="flex: 1; min-width: 250px;">
-                                <h3>Backup erstellen</h3>
-                                <p class="text-sm">Erzeugt ein ZIP-Archiv mit allen Datenbanken und der Konfiguration.</p>
-                                <button class="btn btn-primary" id="btn-admin-backup">📦 Backup jetzt erstellen</button>
-                            </div>
-                            <div style="flex: 1; min-width: 250px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 20px;">
-                                <h3>Restore einspielen</h3>
-                                <p class="text-sm">Wähle eine Backup-ZIP Datei aus, um das System wiederherzustellen.</p>
-                                <div style="display: flex; gap: 10px; align-items: center;">
-                                    <input type="file" id="restore-file" accept=".zip" style="display: none;">
-                                    <button class="btn btn-outline" onclick="document.getElementById('restore-file').click()">📂 ZIP wählen</button>
-                                    <span id="restore-filename" class="text-sm text-muted">Keine Datei gewählt</span>
-                                    <button class="btn btn-danger" id="btn-admin-restore" disabled>⏫ Restore starten</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Hidden IDs required by JS -->
+                <div style="display:none;">
+                    <input id="setting-alert-webhook"><input id="setting-alert-temp-max"><input id="setting-alert-temp-min"><input id="setting-alert-hum-max">
+                    <div id="automations-container"></div><button id="btn-add-automation"></button>
                 </div>
 
-                <div class="card glass">
-                    <div class="card-body">
-                        <h2>🔔 Alerting & Benachrichtigungen</h2>
-                        <p class="text-muted">Erhalte Alerts via Telegram/Discord Webhook (z.B. bei Hitze oder Schimmelgefahr).</p>
-                        <div class="form-group">
-                            <label for="setting-alert-webhook">Webhook URL (Discord/Telegram)</label>
-                            <input type="text" id="setting-alert-webhook" placeholder="https://discord.com/api/webhooks/..." autocomplete="off">
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                            <div class="form-group">
-                                <label for="setting-alert-temp-max">Max. Temperatur (°C)</label>
-                                <input type="number" id="setting-alert-temp-max" value="35" min="20" max="50">
-                            </div>
-                            <div class="form-group">
-                                <label for="setting-alert-temp-min">Min. Temperatur (°C)</label>
-                                <input type="number" id="setting-alert-temp-min" value="15" min="0" max="25">
-                            </div>
-                            <div class="form-group">
-                                <label for="setting-alert-hum-max">Max. Feuchtigkeit (%)</label>
-                                <input type="number" id="setting-alert-hum-max" value="85" min="50" max="95">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            <div class="card glass">
-                <div class="card-body">
-                    <h2>🤖 Automatisierungen</h2>
-                    <p class="text-muted">Steuere Steckdosen basierend auf Sensor-Ereignissen (z.B. Wasserleck).</p>
-                    
-                    <div id="automations-container">
-                        <!-- Automations will be loaded here via JS -->
-                    </div>
-                    <button class="btn btn-outline" id="btn-add-automation" style="margin-top: 15px;">+ Regel hinzufügen</button>
-                </div>
-            </div>     <div class="card glass full-width">
-                    <div class="card-body center">
-                        <button class="btn btn-primary btn-large" id="btn-save-settings">💾 Einstellungen speichern</button>
-                    </div>
-                </div>
+                <div class="center" style="margin-top:32px;"><button class="btn btn-primary" style="padding:16px 32px; font-size:1.1rem;" id="btn-save-settings">💾 Speichern</button></div>
             </div>
         </section>
-
-        <!-- ══════ RATGEBER ══════ -->
-        <section class="page" id="page-advisor">
-            <div class="page-header">
-                <h1>🧠 Intelligenter Ratgeber</h1>
-            </div>
-            <div class="advisor-container">
-                <div class="card glass">
-                    <div class="card-body">
-                        <p class="text-muted">Basierend auf wissenschaftlichen Erkenntnissen aus der Botanik werden deine Sensordaten analysiert.</p>
-                        <div id="advisor-tips" class="advisor-tips-list">
-                            <!-- Tipps werden hier geladen -->
-                            <div class="loading-state">Lade Informationen...</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Lüftungs-Schnittstelle Blueprint -->
-                <div class="card glass" style="margin-top: 20px; border-left: 4px solid var(--warning);">
-                    <div class="card-header"><h3>💨 Lüftungs-Steuerung (Blueprint)</h3></div>
-                    <div class="card-body">
-                        <p class="text-sm">Schnittstelle für Abluft-Aktor noch nicht konfiguriert.</p>
-                        <div id="ventilation-status" class="status-badge" style="background: rgba(255,167,38,0.1); color: var(--warning);">
-                            Standby
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
     </main>
 
-    <!-- ─── Toast Notification ─────────────────────────────────── -->
     <div class="toast-container" id="toast-container"></div>
-
-    <!-- ─── Scripts ────────────────────────────────────────────── -->
+<!-- Externals -->
     <script src="/static/js/app.js"></script>
     <script src="/static/js/charts.js"></script>
     <script src="/static/js/devices.js"></script>
     <script src="/static/js/diary.js"></script>
     <script src="/static/js/advisor.js"></script>
+
+    <!-- Inline Animation/UI Logic -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. Clock
+        const clock = document.getElementById('hero-clock');
+        if(clock){
+            setInterval(() => {
+                clock.textContent = new Date().toLocaleTimeString('de-DE');
+            }, 1000);
+        }
+
+        // 2. Page Transition System
+        const pages = document.querySelectorAll('.page');
+        const links = document.querySelectorAll('.nav-link, .bnav-link, [data-page]');
+        
+        function switchPage(targetId) {
+            const current = document.querySelector('.page.active');
+            let tId = targetId;
+            if (tId === 'history' || tId === 'advisor') tId = 'analyse'; // redirect old links to new combined page
+            const target = document.getElementById('page-' + tId);
+            if (!target || current === target) return;
+
+            if (current) {
+                current.classList.remove('page-enter');
+                current.classList.add('page-exit');
+                setTimeout(() => {
+                    current.classList.remove('active', 'page-exit');
+                    target.classList.add('active', 'page-enter');
+                }, 220); // match transition
+            } else {
+                target.classList.add('active', 'page-enter');
+            }
+
+            // nav states
+            document.querySelectorAll('.nav-link, .bnav-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll(`.nav-link[data-page="${tId}"], .bnav-link[data-page="${tId}"]`).forEach(l => l.classList.add('active'));
+        }
+
+        links.forEach(l => l.addEventListener('click', (e) => {
+            const page = l.getAttribute('data-page');
+            if (page) {
+                if (l.tagName !== 'BUTTON' && l.getAttribute('href')?.startsWith('#')) e.preventDefault();
+                switchPage(page);
+                history.pushState(null, '', '#' + page);
+            }
+        }));
+
+        window.addEventListener('popstate', () => {
+            const hash = window.location.hash.replace('#', '') || 'dashboard';
+            switchPage(hash);
+        });
+
+        // 3. Particle System
+        const canvas = document.getElementById('bg-particles');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
+
+        for(let i=0; i<18; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: Math.random() * 2 + 1,
+                vy: -(Math.random() * 0.3 + 0.1),
+                op: Math.random() * 0.08 + 0.04
+            });
+        }
+        function animateParticles() {
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            ctx.fillStyle = '#2dff7e';
+            particles.forEach(p => {
+                p.y += p.vy;
+                if (p.y < -10) { p.y = canvas.height + 10; p.x = Math.random() * canvas.width; }
+                ctx.globalAlpha = p.op;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        // 4. Modals
+        document.querySelectorAll('.modal-close, [id^="btn-cancel-"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const overlay = btn.closest('.modal-overlay');
+                if (overlay) overlay.classList.remove('active');
+            });
+        });
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('mousedown', (e) => {
+                if (e.target === overlay) overlay.classList.remove('active');
+            });
+        });
+
+        // Extend generic toast behavior safely with progress
+        const oldLog = console.log;
+        const toastContainer = document.getElementById('toast-container');
+        // Let app.js create them, but we css style them.
+        
+        // CountUp logic wrapper
+        window.animateValue = function(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const current = progress * (end - start) + start;
+                obj.innerHTML = Number.isInteger(end) ? Math.floor(current) : current.toFixed(1);
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // 5. Build combined Analyse Chart logic wrapper
+        // The HTML uses id "main-analyse-chart"
+        let mainChart;
+        function renderCombinedAnalyseChart() {
+            const tempCanvas = document.getElementById('chart-temp-history');
+            const humCanvas = document.getElementById('chart-hum-history');
+            const eneCanvas = document.getElementById('chart-energy-history');
+            const heiCanvas = document.getElementById('chart-plant-height');
+            
+            // Extract datasets from the hidden charts created by charts.js
+            const datasets = [];
+            const getDS = (c, type, color, id) => {
+                if(window.charts && window.charts[c.id]) {
+                    const ds = window.charts[c.id].data.datasets;
+                    ds.forEach(d => {
+                        datasets.push({
+                            label: type + ' ' + d.label,
+                            data: d.data,
+                            borderColor: color, backgroundColor: color+'15', fill: true, tension: 0.3,
+                            yAxisID: id, _tag: id
+                        });
+                    });
+                }
+            };
+            getDS(tempCanvas, 'Temp', '#ff7043', 'y-temp');
+            getDS(humCanvas, 'Feuchte', '#42a5f5', 'y-hum');
+            getDS(eneCanvas, 'Energie', '#ffa726', 'y-power');
+            getDS(heiCanvas, 'Höhe', '#ab47bc', 'y-height');
+
+            const ctx = document.getElementById('main-analyse-chart');
+            if(!ctx) return;
+            if(mainChart) mainChart.destroy();
+            mainChart = new Chart(ctx, {
+                type:'line', data: {datasets},
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { type: 'time', time: { displayFormats: {hour:'HH:mm', day:'dd.MM'} }, grid:{color:'rgba(45,255,126,0.06)'}},
+                        'y-temp': { type: 'linear', position: 'left', display: true, title: {display:true,text:'°C',color:'rgba(255,255,255,0.4)'} },
+                        'y-hum': { type: 'linear', position: 'right', display: true, title:{display:true,text:'%',color:'rgba(255,255,255,0.4)'}, min:0, max:100 },
+                        'y-power': { type: 'linear', position: 'right', display: false, title:{display:true,text:'W'} },
+                        'y-height': { type: 'linear', position: 'right', display: false, title:{display:true,text:'cm'} },
+                    },
+                    plugins: {
+                        legend: {labels:{color:'rgba(200,230,201,0.7)', font:{family:'Inter'}}},
+                        tooltip: {backgroundColor:'rgba(10,18,14,0.95)', titleColor:'#e8f5e9', bodyColor:'rgba(200,230,201,0.8)'}
+                    }
+                }
+            });
+        }
+        
+        // Intercept charts refresh to re-render the combined one
+        const oldLoad = window.loadHistoryCharts;
+        if(oldLoad) {
+            window.loadHistoryCharts = async function() {
+                await oldLoad();
+                renderCombinedAnalyseChart();
+            }
+        }
+
+        // Chip Toggles
+        document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+            c.classList.toggle('active');
+            const datasetTag = 'y-' + c.getAttribute('data-dataset');
+            if(mainChart) {
+                // switch scale visibility
+                const activeScale = c.classList.contains('active');
+                if(mainChart.options.scales[datasetTag]) mainChart.options.scales[datasetTag].display = activeScale;
+                
+                mainChart.data.datasets.forEach((meta, idx) => {
+                    if(meta._tag === datasetTag) {
+                        mainChart.setDatasetVisibility(idx, activeScale);
+                    }
+                });
+                mainChart.update();
+            }
+        }));
+
+        // Pill Time Range
+        document.querySelectorAll('.pill-btn').forEach(btn => btn.addEventListener('click', () => {
+            document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            let hr = btn.getAttribute('data-range');
+            let inp = document.getElementById('history-timerange');
+            if(inp) { inp.value = hr; }
+            if(window.loadHistoryCharts) window.loadHistoryCharts();
+        }));
+
+        // Fire initial load for URL hash
+        const hash = window.location.hash.replace('#', '');
+        if(hash) { switchPage(hash); }
+    });
+    </script>
 </body>
 </html>
