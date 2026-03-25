@@ -6,6 +6,9 @@ REST API für Sensordaten, Gerätesteuerung und Pflanzentagebuch.
 import os
 import sys
 import logging
+import threading
+import time
+import json
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, send_from_directory, send_file
 
@@ -23,7 +26,7 @@ from database import (
     get_latest_energy_readings, get_energy_history,
     add_diary_entry, get_diary_entries, get_diary_entry,
     update_diary_entry, delete_diary_entry, get_plant_height_history,
-    add_sensor_reading
+    add_sensor_reading, add_analysis_record, get_analysis_history
 )
 from sensors.tapo_devices import (
     turn_on, turn_off, toggle_device,
@@ -43,30 +46,33 @@ try:
 except ImportError:
     _limiter_available = False
     logger = logging.getLogger("growmate")
-    logger.warning("flask-limiter nicht installiert – Rate-Limiting deaktiviert. "
-                   "Installation: pip install flask-limiter")
+    logger.warning("flask-limiter nicht installiert – Rate-Limiting deaktiviert.")
+
+class MockLimiter:
+    """Fallback-Klasse, falls flask-limiter nicht installiert ist."""
+    def limit(self, *args, **kwargs):
+        def decorator(f):
+            return f
+        return decorator
 
 # ─── App Setup ──────────────────────────────────────────────────────
 
-VERSION = "1.3-dev"
+VERSION = "1.2"
 app = Flask(__name__,
             static_folder="static",
             template_folder="templates")
 
-# Rate-Limiter an App binden (nur wenn flask-limiter installiert)
+# Rate-Limiter an App binden (oder Mock nutzen)
 if _limiter_available:
     limiter = Limiter(
         get_remote_address,
         app=app,
         default_limits=[],          # keine globale Beschränkung auf Read-Endpoints
-        storage_uri="memory://",    # kein Redis nötig, läuft in-process
+        storage_uri="memory://"
     )
+    # kein Redis nötig, läuft in-process
 else:
-    # Dummy-Limiter damit der Decorator @limiter.limit() nicht crasht
-    class _NoOpLimiter:
-        def limit(self, *a, **kw):
-            return lambda f: f
-    limiter = _NoOpLimiter()
+    limiter = MockLimiter()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,6 +81,57 @@ logging.basicConfig(
 )
 logger = logging.getLogger("growmate")
 
+
+# ─── API: Advisor History ───────────────────────────────────────────
+
+@app.route("/api/analysis/history")
+def api_analysis_history():
+    """Gibt die Historie der automatischen 60-Sekunden-Checks zurück."""
+    limit = request.args.get("limit", 20, type=int)
+    history = get_analysis_history(limit=limit)
+    
+    # JSON-Strings in der Datenbank wieder in Listen umwandeln
+    for item in history:
+        try:
+            item["results"] = json.loads(item["results_json"])
+            del item["results_json"]
+        except:
+            item["results"] = []
+            
+    return jsonify({"success": True, "data": history})
+
+# ─── Hintergrund-Advisor-Thread ─────────────────────────────────────
+
+def run_advisor_loop():
+    """Thread-Loop für die automatische 60-Sekunden-Analyse."""
+    import analyzer
+    with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+        f.write(f"\n[{datetime.now()}] Advisor-Loop Thread gestartet\n")
+        f.write(f"[{datetime.now()}] Analyzer-Pfad: {analyzer.__file__}\n")
+    
+    while True:
+        try:
+            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] Starte Analyse-Zyklus...\n")
+            
+            # Analyse triggern
+            tips = analyzer.analyze_plant_needs()
+            
+            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] Analyse abgeschlossen: {len(tips)} Tipps gefunden\n")
+            
+            # In Datenbank speichern
+            add_analysis_record(json.dumps(tips))
+            
+            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] Ergebnisse gespeichert.\n")
+                
+        except Exception as e:
+            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] KRITISCHER FEHLER im Advisor-Loop: {str(e)}\n")
+            logger.error(f"Fehler im Advisor-Loop: {e}")
+        
+        time.sleep(60)
 
 # ─── Frontend ───────────────────────────────────────────────────────
 
@@ -370,7 +427,6 @@ def api_status():
 def api_config_get():
     """Konfiguration abrufen."""
     config = load_config()
-    config["version"] = VERSION
     
     # Tapo credentials from .env in config einfügen (maskiert)
     email, password = get_tapo_credentials()
@@ -621,12 +677,12 @@ def main():
     logger.info("Datenbank initialisiert.")
 
     # Scheduler starten
-    # start_scheduler()  # DEV: disabled to prevent BLE hardware conflict
+    start_scheduler()
 
     # Initiales Polling ausführen (im Hintergrund, um Startup nicht zu blockieren)
     logger.info("Starte initiales Sensor-Polling (Hintergrund)...")
     import threading
-    # threading.Thread(target=poll_all_sensors, daemon=True).start()  # DEV: disabled
+    threading.Thread(target=poll_all_sensors, daemon=True).start()
 
     # Flask starten
     config = load_config()
@@ -839,4 +895,12 @@ def api_admin_restore():
 # ─── Main ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    init_db()
+    
+    # Advisor-Thread starten
+    advisor_thread = threading.Thread(target=run_advisor_loop, daemon=True)
+    advisor_thread.start()
+    
+    port = int(os.environ.get("PORT", 5001))
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

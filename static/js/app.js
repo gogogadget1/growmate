@@ -116,6 +116,12 @@ function navigateTo(pageName) {
         case 'settings':
             loadSettings();
             break;
+        case 'advisor':
+            if (typeof loadAdvisor === 'function') {
+                loadAdvisor();
+                if (typeof startAdvisorPolling === 'function') startAdvisorPolling();
+            }
+            break;
     }
 }
 
@@ -136,6 +142,9 @@ async function checkSystemStatus() {
     const textEl = document.getElementById('global-error-text');
     if (!banner || !textEl) return;
 
+    // Parallel system and advisor checks
+    updateAdvisorStatus();
+
     try {
         const res = await API.get('/api/status');
         if (res.success && res.status === 'error' && res.issues.length > 0) {
@@ -152,6 +161,35 @@ async function checkSystemStatus() {
     } catch (e) {
         banner.style.display = 'block';
         textEl.innerHTML = '<strong>Achtung:</strong> Die Hintergrund-Dienste sind nicht erreichbar.';
+    }
+}
+
+async function updateAdvisorStatus() {
+    const navAdvisor = document.getElementById('nav-advisor');
+    const diaryAlert = document.getElementById('diary-advisor-alert');
+    if (!navAdvisor) return;
+
+    try {
+        const res = await API.get('/api/analysis');
+        if (res.success && res.data && res.data.length > 0) {
+            // Wenn wir NICHT auf der Ratgeber-Seite sind, zeige Indikator
+            if (GrowMate.currentPage !== 'advisor') {
+                navAdvisor.classList.add('has-new-tips');
+                navAdvisor.querySelector('.nav-icon').classList.add('advisor-pulse');
+                if (diaryAlert) diaryAlert.style.display = 'block';
+            } else {
+                // Wir sind drauf -> Verstecken
+                navAdvisor.classList.remove('has-new-tips');
+                navAdvisor.querySelector('.nav-icon').classList.remove('advisor-pulse');
+                if (diaryAlert) diaryAlert.style.display = 'none';
+            }
+        } else {
+            navAdvisor.classList.remove('has-new-tips');
+            navAdvisor.querySelector('.nav-icon').classList.remove('advisor-pulse');
+            if (diaryAlert) diaryAlert.style.display = 'none';
+        }
+    } catch (e) {
+        console.error("Advisor Status Error:", e);
     }
 }
 
@@ -179,13 +217,6 @@ async function loadSensorCards() {
                             <span class="value-number humidity">
                                 ${sensor.humidity !== null ? sensor.humidity.toFixed(1) : '—'}
                                 <span class="value-unit">%</span>
-                            </span>
-                        </div>
-                        <div class="sensor-value">
-                            <span class="value-label">VPD</span>
-                            <span class="value-number vpd">
-                                ${sensor.vpd !== null ? sensor.vpd.toFixed(2) : '—'}
-                                <span class="value-unit">kPa</span>
                             </span>
                         </div>
                     </div>
@@ -240,8 +271,7 @@ async function loadEnergyCards() {
                         </div>
                     </div>
                     <div class="sensor-meta">
-                        <span>📊 ${device.energy_month_wh !== null ? (device.energy_month_wh / 1000).toFixed(2) + ' kWh/Mon' : '0.00 kWh/Mon'}</span>
-                        ${device.dli !== null ? `<span style="color: var(--vpd-color); font-weight: 600;">🌱 DLI: ${device.dli.toFixed(1)} mol/m²/d</span>` : '<span></span>'}
+                        <span>📊 ${device.energy_month_wh !== null ? (device.energy_month_wh / 1000).toFixed(2) + ' kWh/Monat' : '0.00 kWh/Monat'}</span>
                         <span>${formatTimestamp(device.timestamp)}</span>
                     </div>
                 </div>
@@ -301,13 +331,6 @@ async function loadSettings() {
         document.getElementById('setting-ble-duration').value = config.ble_scan_duration_seconds || 10;
         document.getElementById('setting-tapo-email').value = config.tapo_email || '';
         document.getElementById('setting-tapo-password').value = config.tapo_password ? '••••••••' : '';
-        
-        // Alerting Settings
-        document.getElementById('setting-alert-webhook').value = config.alert_webhook_url || '';
-        document.getElementById('setting-alert-temp-max').value = config.alert_temp_max || 35;
-        document.getElementById('setting-alert-temp-min').value = config.alert_temp_min || 15;
-        document.getElementById('setting-alert-hum-max').value = config.alert_hum_max || 85;
-
         renderAutomations(config.automations || []);
     }
 
@@ -357,10 +380,6 @@ async function saveSettings() {
         ble_scan_duration_seconds: parseInt(document.getElementById('setting-ble-duration').value),
         tapo_email: document.getElementById('setting-tapo-email').value,
         tapo_password: document.getElementById('setting-tapo-password').value,
-        alert_webhook_url: document.getElementById('setting-alert-webhook').value,
-        alert_temp_max: parseFloat(document.getElementById('setting-alert-temp-max').value),
-        alert_temp_min: parseFloat(document.getElementById('setting-alert-temp-min').value),
-        alert_hum_max: parseFloat(document.getElementById('setting-alert-hum-max').value),
         automations: automations
     };
 

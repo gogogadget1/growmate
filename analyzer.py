@@ -45,6 +45,8 @@ VECTORS_PATH    = os.path.join(BASE_DIR, "knowledge_vectors.json")
 MODEL_PATH      = os.path.join(BASE_DIR, "model", "model.onnx")
 TOKENIZER_PATH  = os.path.join(BASE_DIR, "model", "tokenizer.json")
 
+KNOWLEDGE_VERSION = "3.0"
+
 # ─── Analyse-Cache ────────────────────────────────────────────────────────────
 # Verhindert ONNX-Queries bei jedem Frontend-Poll. TTL: 60s. Thread-safe.
 _CACHE_TTL_SECONDS = 60
@@ -217,11 +219,16 @@ def _embed_query(text: str) -> np.ndarray | None:
     Vektorisiert einen einzelnen Query-Text via ONNX.
     Gibt normalisierten Vektor (384,) zurück oder None bei Fehler.
     """
-    if _ort_session is None or _ort_tokenizer is None:
+    if _ort_tokenizer is None or _ort_session is None:
+        log.error("ONNX Engine oder Tokenizer nicht initialisiert.")
         return None
 
     try:
-        enc = _ort_tokenizer.encode(text)
+        # Expliziter Cast und Check
+        q_text = str(text)
+        enc = _ort_tokenizer.encode(q_text)  # type: ignore
+        if enc is None:
+            return None
 
         input_ids      = np.array([enc.ids],            dtype=np.int64)
         attention_mask = np.array([enc.attention_mask], dtype=np.int64)
@@ -233,6 +240,8 @@ def _embed_query(text: str) -> np.ndarray | None:
             elif "attention"    in name: feed[name] = attention_mask
             elif "token_type"   in name: feed[name] = token_type_ids
 
+        if _ort_session is None:
+            return None
         outputs = _ort_session.run(None, feed)
         token_embeddings = outputs[0]  # (1, seq_len, 384)
 
@@ -263,14 +272,13 @@ def _search(query_text: str, threshold: float = 0.55, top_k: int = 3) -> list[di
     if q_vec is None:
         return []
 
-    import numpy as np
     # Dot-Product gegen alle Vektoren gleichzeitig
     scores = _kv_vectors @ q_vec
     
     # Indizes der Treffer über dem Threshold finden
     valid_indices = np.where(scores >= threshold)[0]
+    
     if len(valid_indices) == 0:
-        log.debug(f"Kein Treffer für '{query_text[:50]}…'")
         return []
 
     # Nach Score absteigend sortieren
@@ -278,10 +286,12 @@ def _search(query_text: str, threshold: float = 0.55, top_k: int = 3) -> list[di
     top_indices = sorted_indices[:top_k]
 
     results = []
-    for idx in top_indices:
-        score = float(scores[idx])
-        log.debug(f"Treffer: '{_kv_metadatas[idx]['title']}' (Score: {score:.3f})")
-        results.append(_kv_metadatas[idx])
+    with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+        for idx in top_indices:
+            score = float(scores[idx])
+            title = _kv_metadatas[idx]['title']
+            f.write(f"  -> Treffer: '{title}' (Score: {score:.3f})\n")
+            results.append(_kv_metadatas[idx])
         
     return results
 
@@ -289,8 +299,15 @@ def _search(query_text: str, threshold: float = 0.55, top_k: int = 3) -> list[di
 
 def calc_vpd(temp_c: float, rh_percent: float) -> float:
     """Berechnet Vapor Pressure Deficit in kPa aus Temperatur und Luftfeuchte."""
-    svp = 0.6108 * math.exp((17.27 * temp_c) / (temp_c + 237.3))
-    return round(svp * (1 - rh_percent / 100), 3)
+    import math
+    try:
+        # Sättigungsdampfdruck
+        svp = 0.6108 * math.exp((17.27 * temp_c) / (temp_c + 237.3))
+        # Aktueller Dampfdruck & Defizit
+        vpd_val = svp * (1 - rh_percent / 100)
+        return float(f"{vpd_val:.3f}")
+    except (ValueError, OverflowError):
+        return 0.0
 
 
 # ─── Wissensbasis v2.0 ────────────────────────────────────────────────────────
@@ -1931,19 +1948,20 @@ def _get_kb_entry(title: str) -> dict | None:
 
 def analyze_plant_needs() -> list:
     """
-    Analysiert Sensordaten und Tagebuch direkt via Thresholds und Dictionary Lookup.
+    Analysiert Sensordaten gegen botanische Fachdaten und bezieht 
+    automatisch den neuesten Tagebucheintrag via semantischer Suche ein.
     """
     cached = _get_cached_or_none()
     if cached is not None:
         return cached
 
     sensors = get_latest_sensor_readings()
-    diary   = get_diary_entries(limit=10)
+    diary   = get_diary_entries(limit=5)
 
     tips: list = []
     seen: set  = set()
 
-    def add_tip(title: str, name: str, extra_msg: str):
+    def add_tip(title: str, name: str = "", extra_msg: str = ""):
         if title in seen: return
         meta = _get_kb_entry(title)
         if meta:
@@ -1952,6 +1970,30 @@ def analyze_plant_needs() -> list:
             t["message"] = f"{t['message']} {extra_msg}"
             tips.append(t)
             seen.add(title)
+
+    # ── Semantische KI-Analyse (Living Advisor) ───────────────────────────────
+    # Wir nutzen primär den Tagebuch-Inhalt für die Vektor-Suche, 
+    # da Sensordaten die semantische Schärfe verwässern könnten.
+    diary_content = ""
+    if diary:
+        latest = diary[0]
+        diary_content = latest.get('content', '')
+    
+    # Query: Nur Tagebuch, falls vorhanden. Sonst Sensordaten-Status.
+    query = diary_content if diary_content else ""
+    if not query and sensors:
+        s = sensors[0]
+        query = f"Temperatur {s.get('temperature')}°C, Feuchte {s.get('humidity')}%"
+
+    if len(query) > 5:
+        ai_hits = _search(query, threshold=0.50, top_k=2)
+        for hit in ai_hits:
+            if hit["title"] not in seen:
+                # KI-Treffer mit Roboter-Emoji markieren
+                hit_copy = dict(hit)
+                hit_copy["title"] = f"🤖 {hit_copy['title']}"
+                tips.append(hit_copy)
+                seen.add(hit["title"])
 
     current_phase = "Vegetativ"
     for entry in diary:
