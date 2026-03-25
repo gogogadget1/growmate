@@ -103,6 +103,7 @@ def init_db():
             species TEXT,
             start_date DATE,
             notes TEXT,
+            is_archived BOOLEAN DEFAULT FALSE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -118,6 +119,12 @@ def init_db():
             device_name TEXT PRIMARY KEY,
             ppfd_value REAL DEFAULT 0,
             is_growth_light BOOLEAN DEFAULT FALSE
+        );
+
+        CREATE TABLE IF NOT EXISTS analysis_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            results_json TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );
     """)
 
@@ -407,6 +414,7 @@ def get_plants(show_archived=False):
 
 
 @db_retry()
+@db_retry()
 def archive_plant(plant_id, archived=True):
     """Archiviert oder de-archiviert eine Pflanze."""
     conn = get_db()
@@ -414,4 +422,31 @@ def archive_plant(plant_id, archived=True):
     conn.commit()
     conn.close()
     return True
+
+
+# ─── Analysis History ───────────────────────────────────────────────
+
+def add_analysis_record(results_json):
+    """Speichert ein Analyse-Ergebnis in der Historie."""
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO analysis_history (results_json) VALUES (?)",
+        (results_json,)
+    )
+    conn.commit()
+    conn.close()
+
+
+@db_retry()
+def get_analysis_history(limit=20):
+    """Gibt die letzten Analyse-Ergebnisse zurück."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM analysis_history ORDER BY timestamp DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
 
