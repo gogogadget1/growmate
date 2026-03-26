@@ -3,212 +3,258 @@
  * Steckdosen ein-/ausschalten, Geräte hinzufügen/entfernen.
  */
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ─── Phase 1: Kategorien & Typen ────────────────────────────────────
+
+const DEVICE_CATEGORIES = {
+    power:      { label: 'Strom',     icon: '⚡', types: ['tapo_plug', 'smart_outlet', 'timer_plug'] },
+    sensor:     { label: 'Sensoren',  icon: '🌡️', types: ['govee_ble', 'tapo_sensor', 'co2_sensor', 'soil_sensor', 'water_temp', 'ph_sensor', 'ec_sensor', 'leak_sensor'] },
+    light:      { label: 'Licht',     icon: '💡', types: ['grow_light', 'hps_light', 'led_dimmer'] },
+    ventilation:{ label: 'Lüftung',   icon: '💨', types: ['inline_fan', 'circulation_fan', 'fan_controller'] },
+    irrigation: { label: 'Wasser',    icon: '💧', types: ['water_pump', 'dosing_pump', 'drain_pump'] },
+    climate:    { label: 'Klima',     icon: '🌬️', types: ['dehumidifier', 'humidifier', 'ac_unit', 'heat_mat', 'co2_generator'] },
+    hub:        { label: 'Hubs',      icon: '🔗', types: ['tapo_hub', 'zigbee_hub'] },
+};
+
+function getCategoryForType(type) {
+    if (!type) return 'power';
+    for (const [catKey, cat] of Object.entries(DEVICE_CATEGORIES)) {
+        if (cat.types.includes(type)) return catKey;
+    }
+    return 'power'; // Fallback
+}
+
 // ─── Geräte laden ───────────────────────────────────────────────────
+
+// ─── Geräte laden & Render-Logik ────────────────────────────────────
+
+let allDevices = [];
+let currentCategory = 'all';
 
 async function loadDevices() {
     const container = document.getElementById('device-cards');
+    if (!container) return;
+
+    // Loading State
     container.innerHTML = `
-        <div class="card glass loading-card">
-            <div class="card-body center">
-                <div class="spinner"></div>
-                <p>Lade Geräte...</p>
-            </div>
-        </div>
+        <div class="glass card-body skeleton" style="height: 180px;"></div>
+        <div class="glass card-body skeleton" style="height: 180px;"></div>
+        <div class="glass card-body skeleton" style="height: 180px;"></div>
     `;
 
-    const [res, configsRes] = await Promise.all([
-        API.get('/api/devices'),
-        API.get('/api/devices/config')
-    ]);
+    try {
+        const [res, configsRes] = await Promise.all([
+            API.get('/api/devices'),
+            API.get('/api/devices/config')
+        ]);
 
-    const configs = {};
-    if (configsRes.success) {
-        configsRes.data.forEach(c => configs[c.device_name] = c);
+        if (!res.success) {
+            showToast('Fehler beim Laden der Geräte', 'error');
+            return;
+        }
+
+        allDevices = res.data || [];
+        const configs = {};
+        if (configsRes.success) {
+            configsRes.data.forEach(c => configs[c.device_name] = c);
+        }
+
+        // Attach config to device objects
+        allDevices.forEach(d => {
+            d.config = configs[d.name] || {};
+            d.category = getCategoryForType(d.type);
+        });
+
+        renderDeviceUI();
+        updateStatusBar();
+        updateCategoryCounts();
+
+    } catch (err) {
+        console.error('Device Load Error:', err);
+        container.innerHTML = `<div class="glass card-body center error-text">Systemfehler beim Abrufen der Geräte-Daten.</div>`;
+    }
+}
+
+function renderDeviceUI() {
+    const container = document.getElementById('device-cards');
+    if (!container) return;
+
+    const filtered = currentCategory === 'all' 
+        ? allDevices 
+        : allDevices.filter(d => d.category === currentCategory);
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="glass card-body center" style="grid-column: 1/-1; padding: 40px;">
+                <div class="text-ghost" style="font-size: 3rem; margin-bottom: 10px;">🔌</div>
+                <p class="text-muted">Keine Geräte in dieser Kategorie gefunden.</p>
+            </div>
+        `;
+        return;
     }
 
-    if (res.success && res.data && res.data.length > 0) {
-        container.innerHTML = res.data.map((device, index) => {
-            const config = configs[device.name] || {};
-            if (device.type === 'tapo_plug') {
-                return renderPlugCard(device, index, config);
-            } else if (device.type === 'govee_ble') {
-                return renderSensorDeviceCard(device);
-            } else {
-                return renderGenericDeviceCard(device);
-            }
-        }).join('');
+    container.innerHTML = filtered.map((device, idx) => buildDeviceCard(device, idx)).join('');
 
-        // Config-Safe-Events binden
-        container.querySelectorAll('.btn-save-device-config').forEach(btn => {
-            btn.addEventListener('click', handleSaveDeviceConfig);
-        });
+    // Re-bind Events
+    bindDeviceEvents(container);
+}
 
-        // Toggle-Events binden
-        container.querySelectorAll('.device-toggle').forEach(toggle => {
-            toggle.addEventListener('change', handleToggle);
-        });
+function buildDeviceCard(device, index) {
+    const isOnline = device.online !== false;
+    const cat = DEVICE_CATEGORIES[device.category] || { icon: '❓', label: 'Unbekannt' };
+    const delay = index * 50;
+    const isOn = device.device_on === true;
 
-        // Events binden
-        container.querySelectorAll('.btn-remove-device').forEach(btn => {
-            btn.addEventListener('click', handleRemoveDevice);
-        });
-        container.querySelectorAll('.btn-rename-device').forEach(btn => {
-            btn.addEventListener('click', handleRenameDevice);
-        });
-    } else {
-        container.innerHTML = `
-            <div class="card glass">
-                <div class="card-body center">
-                    <div class="empty-state">
-                        <span class="empty-icon">🔌</span>
-                        <span class="empty-text">Keine Geräte konfiguriert. Füge dein erstes Gerät hinzu!</span>
+    // Phase 2: Neuschreiben der Karten-Logik (Struktur-Korrektur)
+    let cardContent = '';
+
+    if (device.type === 'tapo_plug') {
+        const isLight = device.config.is_growth_light;
+        const icon = isLight ? '💡' : '🔌';
+        const powerVal = device.power_w !== undefined ? device.power_w.toFixed(1) : '0.0';
+
+        cardContent = `
+            <div class="card-top">
+                <div class="device-info">
+                    <span class="device-type-icon">${icon}</span>
+                    <div class="device-title-wrap">
+                        <h3 class="device-name">${escapeHtml(device.name)}</h3>
+                        <span class="device-meta">${device.ip}</span>
                     </div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" class="device-toggle" data-ip="${device.ip}" data-name="${escapeHtml(device.name)}" ${isOn ? 'checked' : ''} ${!isOnline ? 'disabled' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="card-body-metric">
+                <div class="metric-group">
+                    <span class="metric-value" style="color: var(--accent-bio)">${powerVal}</span>
+                    <span class="metric-unit">W</span>
+                </div>
+                <div class="metric-group">
+                    <span class="text-xs text-muted" style="text-transform: uppercase;">Status</span>
+                    <div style="font-weight: 700; color: ${isOn ? 'var(--accent-bio)' : 'var(--text-muted)'}">${isOn ? 'AKTIV' : 'STANDBY'}</div>
+                </div>
+            </div>
+        `;
+    } else if (device.category === 'sensor') {
+        const temp = device.temperature !== undefined ? device.temperature.toFixed(1) : '—';
+        const hum = device.humidity !== undefined ? device.humidity.toFixed(0) : '—';
+        
+        cardContent = `
+            <div class="card-top">
+                <div class="device-info">
+                    <span class="device-type-icon">🌡️</span>
+                    <div class="device-title-wrap">
+                        <h3 class="device-name">${escapeHtml(device.name)}</h3>
+                        <span class="device-meta">${device.mac || 'BLE'}</span>
+                    </div>
+                </div>
+                ${isOnline ? '<span class="status-pill online">Live</span>' : '<span class="status-pill offline">Offline</span>'}
+            </div>
+            <div class="card-body-metric">
+                <div class="metric-group">
+                    <span class="metric-value" style="color: var(--accent-heat)">${temp}</span>
+                    <span class="metric-unit">°C</span>
+                </div>
+                <div class="metric-group">
+                    <span class="metric-value" style="color: var(--accent-water)">${hum}</span>
+                    <span class="metric-unit">%</span>
+                </div>
+            </div>
+        `;
+    } else {
+        // Generic Fallback
+        cardContent = `
+            <div class="card-top">
+                <div class="device-info">
+                    <span class="device-type-icon">${cat.icon}</span>
+                    <div class="device-title-wrap">
+                        <h3 class="device-name">${escapeHtml(device.name)}</h3>
+                        <span class="device-meta">${device.type}</span>
+                    </div>
+                </div>
+                ${isOnline ? '<span class="status-pill online">Online</span>' : '<span class="status-pill offline">Offline</span>'}
+            </div>
+            <div class="card-body-metric">
+                <div class="metric-group">
+                    <span class="text-muted">${cat.label}</span>
                 </div>
             </div>
         `;
     }
-}
-
-function renderPlugCard(device, index, config = {}) {
-    const isOnline = device.online !== false;
-    const isOn = device.device_on === true;
-    const ppfd = config.ppfd_value || 0;
-    const isLight = config.is_growth_light === 1 || config.is_growth_light === true;
 
     return `
-        <div class="card glass device-card sensor-card" data-device-name="${escapeHtml(device.name)}">
-            <div class="card-body">
-                <div class="device-header">
-                    <div>
-                        <div class="device-name">🔌 ${escapeHtml(device.name)}</div>
-                        <div class="device-ip">${device.ip || '—'}</div>
-                    </div>
-                    <label class="toggle-switch" title="${isOn ? 'Ausschalten' : 'Einschalten'}">
-                        <input type="checkbox"
-                               class="device-toggle"
-                               data-ip="${device.ip}"
-                               data-name="${escapeHtml(device.name)}"
-                               ${isOn ? 'checked' : ''}
-                               ${!isOnline ? 'disabled' : ''}>
-                        <span class="toggle-slider"></span>
-                    </label>
+        <div class="glass device-card stagger-item" style="animation-delay: ${delay}ms;" data-name="${escapeHtml(device.name)}">
+            ${cardContent}
+            <div class="card-footer">
+                <div class="device-uptime">
+                   <div class="uptime-bar"><div class="uptime-fill" style="width: ${isOnline ? '100%' : '0%'}"></div></div>
+                   <span class="text-xs text-muted">Stabilität: ${isOnline ? '100%' : '0%'}</span>
                 </div>
-
-                <div class="device-status">
-                    ${isOnline
-                        ? `<span class="online">● Online</span> – ${isOn ? '🟢 Eingeschaltet' : '⚫ Ausgeschaltet'}`
-                        : `<span class="offline">● Offline</span>`
-                    }
-                </div>
-
-                <div class="device-config-extra" style="margin: 15px 0; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
-                    <div style="font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Wissenschaftliche Config</div>
-                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
-                            <input type="checkbox" class="config-is-light" ${isLight ? 'checked' : ''} style="accent-color: var(--accent);">
-                            <span>Wachstumslicht</span>
-                        </label>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 0.85rem;">PPFD:</span>
-                            <input type="number" class="config-ppfd" value="${ppfd}" min="0" max="3000" style="width: 70px; background: var(--bg-input); border: 1px solid var(--border-color); color: white; border-radius: 4px; padding: 2px 5px; font-size: 0.85rem;">
-                            <button class="btn btn-sm btn-outline btn-save-device-config" data-name="${escapeHtml(device.name)}" style="padding: 2px 8px;">💾</button>
-                        </div>
-                    </div>
-                </div>
-
-                ${device.power_w !== undefined ? `
-                <div class="device-energy">
-                    <div class="device-energy-item">
-                        <div class="energy-val">${device.power_w !== null ? device.power_w.toFixed(1) : '—'} W</div>
-                        <div class="energy-lbl">Aktuell</div>
-                    </div>
-                    <div class="device-energy-item">
-                        <div class="energy-val">${device.energy_today_wh ? (device.energy_today_wh / 1000).toFixed(2) : '—'} kWh</div>
-                        <div class="energy-lbl">Heute</div>
-                    </div>
-                </div>
-                ` : ''}
-
-                <div class="device-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
-                    <button class="btn btn-outline btn-icon btn-rename-device"
-                            data-name="${escapeHtml(device.name)}" title="Umbenennen">✏️</button>
-                    <button class="btn btn-danger btn-icon btn-remove-device"
-                            data-name="${escapeHtml(device.name)}" title="Gerät entfernen">🗑️</button>
+                <div class="device-ops">
+                    <button class="btn-icon btn-rename-device" data-name="${escapeHtml(device.name)}">✏️</button>
+                    <button class="btn-icon btn-remove-device" data-name="${escapeHtml(device.name)}">🗑️</button>
                 </div>
             </div>
         </div>
     `;
 }
 
-async function handleSaveDeviceConfig(e) {
-    const btn = e.currentTarget;
-    const name = btn.dataset.name;
-    const card = btn.closest('.device-card');
-    const isLight = card.querySelector('.config-is-light').checked;
-    const ppfd = parseInt(card.querySelector('.config-ppfd').value) || 0;
+function bindDeviceEvents(container) {
+    container.querySelectorAll('.device-toggle').forEach(t => t.addEventListener('change', handleToggle));
+    container.querySelectorAll('.btn-rename-device').forEach(b => b.addEventListener('click', handleRenameDevice));
+    container.querySelectorAll('.btn-remove-device').forEach(b => b.addEventListener('click', handleRemoveDevice));
+}
 
-    btn.disabled = true;
-    const res = await API.post('/api/devices/config', {
-        device_name: name,
-        ppfd_value: ppfd,
-        is_growth_light: isLight
-    });
+function updateStatusBar() {
+    const online = allDevices.filter(d => d.online !== false).length;
+    const offline = allDevices.length - online;
+    const totalWatt = allDevices.reduce((acc, d) => acc + (d.power_w || 0), 0);
 
-    if (res.success) {
-        showToast(`✅ Konfiguration für ${name} gespeichert`, 'success');
+    document.getElementById('statusbar-online-count').textContent = online;
+    document.getElementById('statusbar-offline-count').textContent = offline;
+    document.getElementById('statusbar-total-watt').textContent = totalWatt.toFixed(1);
+
+    // Warnings if any device has health issues (placeholder logic)
+    const warnCount = allDevices.filter(d => d.online === false).length;
+    const warnPill = document.getElementById('statusbar-warn-pill');
+    if (warnCount > 0) {
+        warnPill.style.display = 'flex';
+        document.getElementById('statusbar-warn-count').textContent = warnCount;
     } else {
-        showToast(`❌ Fehler: ${res.message}`, 'error');
+        warnPill.style.display = 'none';
     }
-    btn.disabled = false;
 }
 
-function renderSensorDeviceCard(device) {
-    return `
-        <div class="card glass device-card sensor-card" data-device-name="${escapeHtml(device.name)}">
-            <div class="card-body">
-                <div class="device-header">
-                    <div>
-                        <div class="device-name">📡 ${escapeHtml(device.name)}</div>
-                        <div class="device-ip">${device.mac || 'BLE Sensor'}</div>
-                    </div>
-                </div>
-                <div class="device-status">
-                    <span class="online">● Bluetooth</span> – Passiver Scan
-                </div>
-                <div class="device-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn btn-outline btn-icon btn-rename-device"
-                            data-name="${escapeHtml(device.name)}" title="Umbenennen">✏️</button>
-                    <button class="btn btn-danger btn-icon btn-remove-device"
-                            data-name="${escapeHtml(device.name)}" title="Gerät entfernen">🗑️</button>
-                </div>
-            </div>
-        </div>
-    `;
+function updateCategoryCounts() {
+    document.getElementById('cat-count-all').textContent = allDevices.length;
+    for (const catKey of Object.keys(DEVICE_CATEGORIES)) {
+        const count = allDevices.filter(d => d.category === catKey).length;
+        const el = document.getElementById(`cat-count-${catKey}`);
+        if (el) el.textContent = count;
+    }
 }
 
-function renderGenericDeviceCard(device) {
-    return `
-        <div class="card glass device-card sensor-card" data-device-name="${escapeHtml(device.name)}">
-            <div class="card-body">
-                <div class="device-header">
-                    <div>
-                        <div class="device-name">📱 ${escapeHtml(device.name)}</div>
-                        <div class="device-ip">${device.ip || device.mac || '—'}</div>
-                    </div>
-                </div>
-                <div class="device-status">
-                    <span>${device.type}</span>
-                </div>
-                <div class="device-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn btn-outline btn-icon btn-rename-device"
-                            data-name="${escapeHtml(device.name)}" title="Umbenennen">✏️</button>
-                    <button class="btn btn-danger btn-icon btn-remove-device"
-                            data-name="${escapeHtml(device.name)}" title="Gerät entfernen">🗑️</button>
-                </div>
-            </div>
-        </div>
-    `;
-}
+// ─── Filter & Navigation (Phase 4) ──────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    const tabs = document.querySelectorAll('.cat-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentCategory = tab.dataset.cat;
+            renderDeviceUI();
+        });
+    });
+});
 
 // ─── Toggle Handler ─────────────────────────────────────────────────
 

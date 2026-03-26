@@ -10,7 +10,7 @@ import sqlite3
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 import config
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 import time
@@ -167,7 +167,7 @@ def get_latest_sensor_readings():
 def get_sensor_history(sensor_name=None, hours=24):
     """Gibt Sensor-Historiedaten zurück."""
     conn = get_db()
-    since = (datetime.utcnow() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
 
     if sensor_name:
         rows = conn.execute(
@@ -225,7 +225,7 @@ def get_latest_energy_readings():
 def get_energy_history(device_name=None, hours=24):
     """Gibt Energie-Historiedaten zurück."""
     conn = get_db()
-    since = (datetime.utcnow() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
 
     if device_name:
         rows = conn.execute(
@@ -400,6 +400,16 @@ def get_device_config(device_name):
     cursor.execute("SELECT * FROM device_configs WHERE device_name = ?", (device_name,))
     row = cursor.fetchone()
     return dict(row) if row else None
+
+
+def get_all_device_configs():
+    """Lädt alle Geräte-Konfigurationen."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM device_configs")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def get_plants(show_archived=False):

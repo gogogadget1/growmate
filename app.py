@@ -9,7 +9,7 @@ import logging
 import threading
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify, request, render_template, send_from_directory, send_file
 
 # Projektverzeichnis zum Path hinzufügen
@@ -187,35 +187,46 @@ def api_energy_history():
 
 @app.route("/api/devices")
 def api_devices():
-    """Alle konfigurierten Geräte mit aktuellem Status."""
-    config = load_config()
-    devices = config.get("devices", [])
-    email, password = get_tapo_credentials()
+    """Alle konfigurierten Geräte mit aktuellem Status (non-blocking)."""
+    config_data = load_config()
+    devices = config_data.get("devices", [])
+    
+    # Holen der aktuellsten Werte aus der DB (Cache-Ersatz)
+    latest_sensors = {r["sensor_name"]: r for r in get_latest_sensor_readings()}
+    latest_energy = {r["device_name"]: r for r in get_latest_energy_readings()}
 
     result = []
     for device in devices:
+        name = device.get("name", "")
+        dtype = device.get("type", "")
+        
         dev_info = {
-            "name": device.get("name", ""),
-            "type": device.get("type", ""),
+            "name": name,
+            "type": dtype,
+            "category": "plug" if dtype == "tapo_plug" else "sensor",
             "ip": device.get("ip", ""),
             "mac": device.get("mac", ""),
             "enabled": device.get("enabled", True),
+            "online": False,
+            "timestamp": None
         }
 
-        # Live-Status für Tapo-Steckdosen abrufen
-        if device.get("type") == "tapo_plug" and email and password and device.get("ip"):
-            try:
-                info = get_device_info(device["ip"], email, password)
-                if info.get("success"):
-                    dev_info["online"] = True
-                    dev_info["device_on"] = info.get("device_on", False)
-                    dev_info["signal_level"] = info.get("signal_level", 0)
-                else:
-                    dev_info["online"] = False
-            except Exception:
-                dev_info["online"] = False
-        elif device.get("type") == "govee_ble":
-            dev_info["online"] = True  # BLE Sensoren sind "online" wenn sie beim letzten Scan gefunden wurden
+        # Daten-Mapping aus DB-Readings
+        if dtype == "tapo_plug":
+            reading = latest_energy.get(name)
+            if reading:
+                dev_info["online"] = True
+                dev_info["device_on"] = True # Wenn wir ein Reading haben, war er zumindest kürzlich online
+                dev_info["power_w"] = reading.get("power_w")
+                dev_info["timestamp"] = reading.get("timestamp")
+        elif dtype == "govee_ble":
+            reading = latest_sensors.get(name)
+            if reading:
+                dev_info["online"] = True
+                dev_info["temperature"] = reading.get("temperature")
+                dev_info["humidity"] = reading.get("humidity")
+                dev_info["battery"] = reading.get("battery")
+                dev_info["timestamp"] = reading.get("timestamp")
 
         result.append(dev_info)
 
@@ -257,6 +268,14 @@ def api_device_energy():
     email, password = get_tapo_credentials()
     result = get_energy_usage(ip, email, password)
     return jsonify(result)
+
+
+@app.route("/api/devices/config")
+def api_devices_config():
+    """Gibt alle Geräte-Konfigurationen aus der Datenbank zurück."""
+    from database import get_all_device_configs
+    configs = get_all_device_configs()
+    return jsonify({"success": True, "data": configs})
 
 
 # ─── API: Tagebuch ──────────────────────────────────────────────────
@@ -377,7 +396,7 @@ def api_status():
     interval_mins = config.get("polling_interval_minutes", 5)
     # Toleranz: 3 Intervalle fehlgeschlagen (mindestens 15 min)
     threshold = max(15, interval_mins * 3)
-    cutoff = datetime.utcnow() - timedelta(minutes=threshold)
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=threshold)
 
     latest_sensors = {r["sensor_name"]: r for r in get_latest_sensor_readings()}
     latest_energy = {r["device_name"]: r for r in get_latest_energy_readings()}
@@ -411,7 +430,7 @@ def api_status():
             # SQLite datetime format: "2024-03-18 15:10:00"
             last_ts = datetime.strptime(last_ts_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
             if last_ts < cutoff:
-                delta_mins = int((datetime.utcnow() - last_ts).total_seconds() / 60)
+                delta_mins = int((datetime.now(timezone.utc) - last_ts).total_seconds() / 60)
                 issues.append({"device": name, "message": f"Keine Daten seit {delta_mins} Minuten."})
         except Exception:
             pass

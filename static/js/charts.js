@@ -99,7 +99,7 @@ async function loadDashboardCharts() {
                 label: name,
                 data: sensors[name].map(r => ({
                     x: new Date(r.timestamp),
-                    y: r.temperature,
+                    y: parseFloat(r.temperature) || 0,
                 })),
                 borderColor: colors[i % colors.length],
                 backgroundColor: colors[i % colors.length] + '15',
@@ -133,7 +133,7 @@ async function loadDashboardCharts() {
                 label: name,
                 data: sensors[name].map(r => ({
                     x: new Date(r.timestamp),
-                    y: r.humidity,
+                    y: parseFloat(r.humidity) || 0,
                 })),
                 borderColor: '#42a5f5',
                 backgroundColor: '#42a5f515',
@@ -188,7 +188,7 @@ async function loadTempHistory(hours) {
         data: {
             datasets: sensorNames.map((name, i) => ({
                 label: name,
-                data: sensors[name].map(r => ({ x: new Date(r.timestamp), y: r.temperature })),
+                data: sensors[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.temperature) || 0 })),
                 borderColor: colors[i % colors.length],
                 backgroundColor: colors[i % colors.length] + '10',
                 fill: true,
@@ -224,7 +224,7 @@ async function loadHumHistory(hours) {
         data: {
             datasets: sensorNames.map((name, i) => ({
                 label: name,
-                data: sensors[name].map(r => ({ x: new Date(r.timestamp), y: r.humidity })),
+                data: sensors[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.humidity) || 0 })),
                 borderColor: colors[i % colors.length],
                 backgroundColor: colors[i % colors.length] + '10',
                 fill: true,
@@ -267,7 +267,7 @@ async function loadEnergyHistory(hours) {
         data: {
             datasets: deviceNames.map((name, i) => ({
                 label: name,
-                data: devices[name].map(r => ({ x: new Date(r.timestamp), y: r.power_w })),
+                data: devices[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.power_w) || 0 })),
                 borderColor: colors[i % colors.length],
                 backgroundColor: colors[i % colors.length] + '10',
                 fill: true,
@@ -315,7 +315,7 @@ async function loadPlantHeightChart() {
         if (!plants[name]) plants[name] = [];
         plants[name].push({
             x: new Date(r.entry_date + 'T00:00:00'),
-            y: r.plant_height_cm,
+            y: parseFloat(r.plant_height_cm) || 0,
         });
     });
 
@@ -367,12 +367,18 @@ async function loadPlantHeightChart() {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function createOrUpdateChart(canvasId, config) {
+    // Sicherheits-Zerstörung bestehender Instanzen
+    if (window.myChartInstance) {
+        window.myChartInstance.destroy();
+    }
     if (charts[canvasId]) {
         charts[canvasId].destroy();
     }
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    charts[canvasId] = new Chart(ctx.getContext('2d'), config);
+    const chartInstance = new Chart(ctx.getContext('2d'), config);
+    charts[canvasId] = chartInstance;
+    window.myChartInstance = chartInstance; // Globaler Ref für Debugging/User-Wunsch
 }
 
 function groupBySensor(data) {

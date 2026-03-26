@@ -286,7 +286,7 @@ def _search(query_text: str, threshold: float = 0.55, top_k: int = 3) -> list[di
     top_indices = sorted_indices[:top_k]
 
     results = []
-    with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+    with open(os.path.join(BASE_DIR, "advisor_debug.log"), "a") as f:
         for idx in top_indices:
             score = float(scores[idx])
             title = _kv_metadatas[idx]['title']

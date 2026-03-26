@@ -9,7 +9,7 @@ async function loadAdvisor() {
         const res = await API.get('/api/analysis');
         if (res.success && res.data) {
             if (res.data.length === 0) {
-                container.innerHTML = '<p class="text-muted">Aktuell keine besonderen Hinweise. Deine Pflanzen scheinen sich wohlzufühlen!</p>';
+                container.innerHTML = '<div style="padding: 15px; background: rgba(46, 204, 113, 0.1); border-left: 4px solid #2ecc71; color: white;">🌿 Alle Umgebungswerte sind optimal. Die KI hat keine akuten Warnungen.</div>';
                 return;
             }
 

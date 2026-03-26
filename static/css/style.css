@@ -1392,3 +1392,234 @@ body::before {
     font-style: italic;
     color: var(--text-muted);
 }
+
+/* ─── Geräte-Seite Redesign (Phase 6 - Korrektur) ────────────────── */
+
+.device-statusbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.statusbar-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-faint);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.statusbar-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.statusbar-pill.online .statusbar-dot { background: var(--accent-bio); box-shadow: 0 0 8px var(--accent-bio); }
+.statusbar-pill.offline .statusbar-dot { background: var(--text-muted); }
+.statusbar-pill.warn { border-color: var(--accent-danger); color: var(--accent-danger); background: rgba(255,61,90,0.05); }
+
+.category-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 24px;
+    scrollbar-width: none;
+}
+.category-tabs::-webkit-scrollbar { display: none; }
+
+.cat-tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-faint);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.cat-tab:hover { background: var(--bg-elevated); border-color: var(--border-subtle); }
+.cat-tab.active {
+    background: rgba(45,255,126,0.1);
+    border-color: var(--accent-bio);
+    color: var(--accent-bio);
+    box-shadow: 0 4px 12px rgba(45,255,126,0.1);
+}
+
+.cat-tab-count {
+    font-size: 0.75rem;
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: var(--text-muted);
+}
+.cat-tab.active .cat-tab-count { background: var(--accent-bio); color: #000; }
+
+.device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.device-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    min-height: 200px;
+}
+
+/* Card Base Structure (Phase 0 Korrektur) */
+.card-top { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    padding: 20px 20px 0 20px; 
+}
+
+.card-body-metric { 
+    padding: 16px 20px; 
+    display: flex; 
+    gap: 24px; 
+    align-items: flex-end; 
+    flex: 1;
+}
+
+.metric-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.device-info { display: flex; gap: 14px; align-items: center; }
+.device-type-icon {
+    font-size: 1.6rem;
+    width: 44px;
+    height: 44px;
+    background: var(--bg-elevated);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-faint);
+}
+
+.device-title-wrap { display: flex; flex-direction: column; }
+.device-name { font-size: 1rem; font-weight: 600; margin-bottom: 2px; }
+.device-meta { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+
+.status-pill {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.status-pill.online { background: rgba(45,255,126,0.1); color: var(--accent-bio); }
+.status-pill.offline { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+/* Typografie der Hauptwerte (Zwingend groß!) */
+.metric-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.4rem !important; 
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 0 0 20px currentColor;
+    animation: biopulse 4s ease-in-out infinite;
+}
+
+.metric-unit { 
+    font-size: 0.9rem; 
+    color: var(--text-muted); 
+    margin-bottom: 4px; 
+    font-weight: 500; 
+}
+
+.device-card .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-faint);
+    margin-top: auto;
+    background: rgba(0,0,0,0.1);
+}
+
+.device-uptime { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.uptime-bar { width: 80%; height: 4px; background: var(--bg-elevated); border-radius: 2px; overflow: hidden; }
+.uptime-fill { height: 100%; background: var(--accent-bio); border-radius: 2px; }
+
+.device-ops { display: flex; gap: 4px; }
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 150ms;
+    border: 1px solid transparent;
+}
+.btn-icon:hover { background: rgba(255,255,255,0.05); border-color: var(--border-subtle); }
+
+/* Ventilation Section */
+.ventilation-section {
+    grid-column: 1 / -1;
+    margin-top: 32px;
+    border-top: 2px solid var(--accent-water);
+}
+
+.ventilation-hero {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.fan-icon-wrap {
+    width: 64px;
+    height: 64px;
+    background: rgba(0,212,170,0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    border: 1px solid var(--accent-water);
+    box-shadow: 0 0 20px rgba(0,212,170,0.1);
+}
+
+.fan-icon.spinning { animation: spin-slow 1.5s linear infinite; }
+
+.ventilation-status-text { flex: 1; min-width: 200px; }
+.ventilation-controls { display: flex; align-items: center; gap: 20px; }
+
+.ventilation-rules {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+@media(max-width: 768px) { .ventilation-rules { grid-template-columns: 1fr; } }
+
+.rule-row { display: flex; flex-direction: column; gap: 12px; }
+.rule-row label { display: flex; justify-content: space-between; font-size: 0.9rem; }
+.rule-row input[type="range"] {
+    appearance: none; background: var(--bg-elevated); height: 6px; border-radius: 3px; outline: none;
+}
+.rule-row input[type="range"]::-webkit-slider-thumb {
+    appearance: none; width: 18px; height: 18px; background: var(--accent-water); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(0,212,170,0.4);
+}
+
