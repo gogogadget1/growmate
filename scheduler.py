@@ -20,6 +20,7 @@ import threading
 import time
 import os
 import random
+import mock_data_system
 
 logger = logging.getLogger("growmate.scheduler")
 
@@ -50,8 +51,8 @@ def poll_all_sensors():
     
     # ─── Demo Mode ──────────────────────────────────────────────────
     if os.environ.get("GROW_DEMO_MODE", "false").lower() == "true":
-        _generate_mock_data()
-        logger.info("Demo-Modus: Synthetische Daten generiert.")
+        mock_data_system.get_live_mock_data()
+        logger.info("Demo-Modus: Comprehensive Mock-Daten generiert.")
 
     try:
         # ─── Govee BLE Sensoren ─────────────────────────────────────────
@@ -243,29 +244,9 @@ def execute_device_command(device_name, command, cfg):
     return False, f"Protokoll {d_type} nicht unterstützt"
 
 
+# DEPRECATED: This exists for backward compatibility, use mock_data_system instead.
 def _generate_mock_data():
-    """Generiert realistische Dummy-Daten für den Demo-Modus."""
-    # 1. Klima-Sensor (Zelt Demo)
-    temp = 22.5 + (random.random() * 4.0)  # 22.5 - 26.5
-    hum = 55.0 + (random.random() * 10.0)  # 55 - 65
-    add_sensor_reading(
-        sensor_name="Zelt Demo (Virtual)",
-        sensor_type="govee_ble",
-        temperature=round(temp, 1),
-        humidity=round(hum, 1),
-        battery=98
-    )
-
-    # 2. Steckdose (Lampe Demo)
-    power = 80.0 + (random.random() * 5.0) # 80 - 85W
-    add_energy_reading(
-        device_name="Lampe Demo (Virtual)",
-        power_w=round(power, 1),
-        energy_today_wh=1200 + random.randint(0, 100),
-        energy_month_wh=35000 + random.randint(0, 500),
-        voltage_v=231,
-        current_a=0.35
-    )
+    mock_data_system.get_live_mock_data()
 
 def start_scheduler():
     """Startet den Scheduler mit dem konfigurierten Intervall."""
@@ -286,6 +267,15 @@ def start_scheduler():
     )
 
     if not scheduler.running:
+        # ─── Demo Initialization ───
+        if os.environ.get("GROW_DEMO_MODE", "false").lower() == "true":
+            logger.info("Demo-Modus aktiv: Vorbereite Testumgebung...")
+            # Mock-Geräte werden nun dynamisch über die API eingebunden (clean_mock_config call in app.py)
+            # Generiere 7 Tage Historie falls noch nicht geschehen (Prüfung vereinfacht: nur bei leerer Tabelle)
+            latest_readings = database.get_latest_sensor_readings()
+            if not latest_readings:
+                 mock_data_system.generate_historical_data(days=7)
+        
         scheduler.start()
         logger.info(f"Scheduler gestartet – Polling alle {interval} Minuten.")
         

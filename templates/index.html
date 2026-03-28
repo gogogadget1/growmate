@@ -331,9 +331,21 @@
             width: 100%; padding: 12px 12px 12px 0; background: transparent; border: none; border-bottom: 1px solid var(--border-faint);
             color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 1rem; transition: all 200ms; border-radius: 0;
         }
-        .form-input:focus { outline: none; border-bottom-color: var(--accent-bio); box-shadow: 0 2px 0 var(--accent-bio); }
-        .form-label { position: absolute; top: 12px; left: 0; color: var(--text-muted); transition: all 200ms ease; pointer-events: none; }
         .form-input:focus ~ .form-label, .form-input:not(:placeholder-shown) ~ .form-label { transform: translateY(-20px) scale(0.85); transform-origin: left top; color: var(--accent-bio); }
+        
+        /* PREMIUM DROPDOWN STYLE */
+        select.form-input {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgb(45, 255, 126)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+            padding-left: 12px;
+            padding-right: 40px;
+            cursor: pointer;
+        }
+        select.form-input option { background: #0a120e; color: var(--text-primary); padding: 12px; }
         
         /* Switch */
         .switch-wrap { display: flex; align-items: center; gap: 12px; cursor: pointer; }
@@ -359,6 +371,119 @@
         @keyframes staggerIn { to { opacity: 1; transform: translateY(0) scale(1); } }
         
         .global-error { margin-bottom:24px; border-left: 4px solid var(--danger); background: rgba(255,61,90,0.1); color: var(--danger); padding:16px; border-radius:12px; display:none; align-items:center; gap:12px; }
+
+        /* --- TENT UI SPECIFIC --- */
+        .tent-stats-card {
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        @media(max-width: 767px) {
+            .tent-stats-card { display: grid; grid-template-columns: 1fr 1fr; }
+            .tent-stats-card > div.divider { display: none; }
+        }
+        .tent-stat-block { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+        .tent-stat-block > .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; font-family: 'Space Grotesk', sans-serif;}
+        .tent-stat-block > .value { font-size: 1.6rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif; display: flex; align-items: center; gap: 6px; }
+        .tent-stat-block > .sub { font-size: 0.75rem; color: var(--text-ghost); }
+        .ratio-bar { width: 100px; height: 4px; border-radius: 2px; background: var(--danger); display: flex; overflow: hidden; margin-top: 4px; }
+        .ratio-bar > .online { background: var(--accent-bio); height: 100%; transition: width 300ms; }
+        .tent-stats-card > .divider { width: 1px; height: 40px; background: var(--border-subtle); }
+        
+        .view-toggle-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 16px; }
+        .view-pill-group { display: flex; background: var(--bg-surface); border-radius: 30px; padding: 4px; border: 1px solid var(--border-faint); }
+        .view-pill { padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); cursor: pointer; transition: all 200ms; display: flex; align-items: center; gap: 6px; }
+        .view-pill.active { background: var(--bg-elevated); color: var(--text-primary); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border: 1px solid var(--border-active); }
+        
+        .tent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .tent-card { padding: 20px; border-radius: 20px; display: flex; flex-direction: column; gap: 16px; transition: all 300ms cubic-bezier(0.4,0,0.2,1); }
+        .tent-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-color: var(--border-active); }
+        .tent-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .tent-card-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.2rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .tent-card-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+        
+        .tent-metrics { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-faint); border-bottom: 1px solid var(--border-faint); margin: 4px 0; }
+        .tent-metric { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .tent-metric-val { font-size: 1.1rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .tent-metric-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+        
+        .tent-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tent-chip { background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 20px; padding: 4px 10px; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; }
+        .tent-chip.active { border-color: var(--accent-bio); background: rgba(45,255,126,0.05); }
+        
+        .tent-health-row { display: flex; justify-content: space-between; align-items: center; margin-top: auto; font-size: 0.85rem; }
+        .health-bar-bg { width: 120px; height: 6px; background: var(--bg-surface); border-radius: 3px; overflow: hidden; margin-right: 8px; }
+        .health-bar-fill { height: 100%; transition: width 800ms ease-out, background-color 300ms; }
+        
+        .tent-empty-state { border: 2px dashed var(--border-subtle); border-radius: 20px; padding: 32px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; background: transparent; }
+        
+        .unassigned-section { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border-faint); }
+        .unassigned-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+        .mini-device-card { padding: 12px; border-radius: 12px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 200ms; }
+        .mini-device-card:hover { transform: translateY(-2px); border-color: var(--accent-bio); }
+        .mini-device-card.selected { border-color: var(--accent-bio); background: rgba(45, 255, 126, 0.08); box-shadow: 0 0 20px rgba(45,255,126,0.1); }
+        .mini-device-card.selected::after { content: '✓'; color: var(--accent-bio); font-weight: bold; margin-left: 8px; }
+        
+        .selection-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        
+        #panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 400; opacity: 0; transition: opacity 300ms; display: none; grid-template-columns: 1fr; place-items: center; overflow-y: auto; padding: 2vh 20px; pointer-events: none; }
+        #panel-overlay.active { display: grid; opacity: 1; pointer-events: auto; }
+        .slide-panel { width: 92%; max-width: 800px; max-height: 94vh; margin: auto; background: var(--bg-base); border: 1px solid var(--border-subtle); z-index: 401; border-radius: 28px; display: flex; flex-direction: column; box-shadow: 0 32px 100px rgba(0,0,0,0.9); transform: scale(0.9) translateY(40px); opacity: 0; transition: all 400ms cubic-bezier(0.34,1.56,0.64,1); overflow: hidden; }
+        .slide-panel-body { padding: 32px; overflow-y: auto; flex: 1; min-height: 0; }
+        .slide-panel.open { transform: scale(1) translateY(0); opacity: 1; }
+        .slide-panel.closing { transform: scale(0.9) translateY(40px); opacity: 0; transition: all 250ms ease-in; }
+        .panel-content-fade { animation: contentFade 0.3s ease-out; }
+        @keyframes contentFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-panel-header { padding: 24px 32px; border-bottom: 1px solid var(--border-faint); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); }
+        .slide-panel-body { padding: 32px; overflow-y: auto; flex: 1; }
+        
+        .category-row { margin-bottom: 32px; }
+        .category-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+        .category-items { display: flex; flex-direction: column; gap: 12px; }
+        .category-item { display: flex; align-items: center; justify-content: space-between; background: var(--bg-elevated); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-faint); }
+        
+        /* --- CATEGORY TABS REDESIGN --- */
+        .category-tabs-container { margin-bottom: 32px; overflow: hidden; }
+        .category-tabs { display: flex; gap: 10px; overflow-x: auto; padding: 4px 4px 12px 4px; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; }
+        .category-tabs::-webkit-scrollbar { display: none; }
+        
+        .cat-tab { 
+            display: flex; align-items: center; gap: 8px; padding: 10px 18px; 
+            background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-faint); 
+            border-radius: 30px; color: var(--text-secondary); cursor: pointer; 
+            transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap;
+            font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 0.9rem;
+            outline: none;
+        }
+        .cat-tab:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--border-subtle); transform: translateY(-2px); }
+        .cat-tab.active { 
+            background: rgba(45, 255, 126, 0.1); color: var(--accent-bio); 
+            border-color: rgba(45, 255, 126, 0.4); box-shadow: 0 8px 24px rgba(45, 255, 126, 0.15); 
+        }
+        .cat-tab-icon { font-size: 1.2rem; }
+        .cat-tab-count { 
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, 0.05); color: var(--text-muted); 
+            font-size: 0.7rem; min-width: 22px; height: 18px; padding: 0 6px; 
+            border-radius: 9px; font-weight: 700; transition: all 250ms;
+        }
+        .cat-tab.active .cat-tab-count { background: var(--accent-bio); color: #000; }
+
+        .btn-link { color: var(--text-secondary); text-decoration: underline; font-size: 0.85rem; padding: 0; border:none; background:none; cursor:pointer;}
+        .btn-link:hover { color: var(--accent-bio); text-decoration: none; }
+        
+        .zone-transition { transition: opacity 180ms, transform 180ms; }
+        .zone-out { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+        .zone-in { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        
+        .icon-picker { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .icon-picker-btn { width: 44px; height: 44px; border-radius: 12px; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; background: var(--bg-surface); border: 2px solid transparent; cursor: pointer; transition: all 200ms; }
+        .icon-picker-btn.active { border-color: var(--accent-bio); background: rgba(45,255,126,0.1); box-shadow: 0 0 12px rgba(45,255,126,0.2); }
     </style>
 </head>
 <body>
@@ -506,115 +631,159 @@
         <!-- DEVICES -->
         <section class="page" id="page-devices">
 
-          <!-- Status-Bar -->
-          <div class="device-statusbar" id="device-statusbar">
-            <div class="statusbar-pill online">
-              <span class="statusbar-dot"></span>
-              <span id="statusbar-online-count">0</span> online
-            </div>
-            <div class="statusbar-pill offline">
-              <span class="statusbar-dot"></span>
-              <span id="statusbar-offline-count">0</span> offline
-            </div>
-            <div class="statusbar-pill warn" id="statusbar-warn-pill" style="display:none;">
-              <span>⚠️</span>
-              <span id="statusbar-warn-count">0</span> Warnungen
-            </div>
-            <div class="statusbar-pill power-total">
-              <span>⚡</span>
-              <span id="statusbar-total-watt">—</span> W gesamt
+          <!-- Zone 1: Global Stats Card -->
+          <div class="glass tent-stats-card" id="global-tent-stats">
+              <div class="tent-stat-block">
+                  <span class="label">⚡ Gesamtleistung</span>
+                  <span class="value" style="color: var(--accent-sun)"><span id="g-stat-watt">0.0</span> <span style="font-size:0.9rem">W</span></span>
+                  <span class="sub" id="g-stat-watt-sub">0 Geräte aktiv</span>
+              </div>
+              <div class="divider"></div>
+              <div class="tent-stat-block">
+                  <span class="label">✅ Status</span>
+                  <span class="value"><span id="g-stat-online">0</span> <span style="font-size:0.9rem; color:var(--text-muted)">Online</span></span>
+                  <div class="ratio-bar"><div class="online" id="g-stat-ratio" style="width:0%"></div></div>
+              </div>
+              <div class="divider"></div>
+              <div class="tent-stat-block" style="cursor:pointer;" id="g-stat-warn-block">
+                  <span class="label">⚠️ Warnungen</span>
+                  <span class="value" id="g-stat-warn-val" style="color: var(--text-muted)">0</span>
+                  <span class="sub" id="g-stat-warn-sub">Alles OK</span>
+              </div>
+              <div class="divider"></div>
+              <div class="tent-stat-block">
+                  <span class="label">🏕️ Zelte</span>
+                  <span class="value" id="g-stat-tents">0</span>
+                  <span class="sub" id="g-stat-tents-sub">0 aktiv</span>
+              </div>
+              <div class="divider"></div>
+              <div class="tent-stat-block" style="cursor:pointer;" id="g-stat-polling">
+                  <span class="label">🔄 Letztes Update</span>
+                  <span class="value" style="font-size: 1.1rem" id="g-stat-time">—</span>
+                  <span class="sub" style="display:flex; align-items:center; gap:4px;"><span class="status-dot" style="position:static; width:6px; height:6px;"></span> Polling aktiv</span>
+              </div>
+          </div>
+
+          <!-- Zone 2: Ansichts-Toggle & Aktionen -->
+          <div class="view-toggle-area">
+              <div class="view-pill-group">
+                  <button class="view-pill active" id="toggle-view-tents">🏕️ Zeltansicht</button>
+                  <button class="view-pill" id="toggle-view-all">📋 Alle Geräte</button>
+              </div>
+              <div style="display:flex; gap:12px;">
+                  <button class="btn btn-outline" id="btn-add-tent">+ Zelt anlegen</button>
+                  <button class="btn btn-primary" id="btn-add-device">+ Gerät hinzufügen</button>
+              </div>
+          </div>
+
+          <!-- Zone 3a: Zeltansicht -->
+          <div id="zone-tents" class="zone-transition zone-in">
+              <div class="tent-grid" id="tent-cards-container">
+                 <!-- Tents rendered here -->
+              </div>
+              
+              <div class="unassigned-section" id="unassigned-section" style="display:none;">
+                                     <div class="selection-header">
+                       <h3 style="font-size:1rem; color:var(--text-secondary)">📦 Nicht zugewiesen (<span id="unassigned-count">0</span>)</h3>
+                       <button class="btn btn-primary btn-sm" id="btn-open-bulk-assign" style="display:none; padding: 6px 12px; font-size: 0.8rem;">📦 <span id="selected-count-label">0</span> Zuweisen...</button>
+                   </div>
+
+                  <div class="unassigned-grid" id="unassigned-container"></div>
+              </div>
+          </div>
+
+          <!-- Zone 3b: Alle Geräte -->
+          <div id="zone-all" class="zone-transition zone-out" style="display:none; position:absolute; width:100%; left:0; padding: 0 40px;">
+              <div class="category-tabs-container">
+                  <div class="category-tabs" id="category-tabs" role="tablist">
+                      <button class="cat-tab active" data-cat="all" role="tab"><span class="cat-tab-icon">📋</span><span class="cat-tab-label">Alle</span><span class="cat-tab-count" id="cat-count-all">0</span></button>
+                      <button class="cat-tab" data-cat="power" role="tab"><span class="cat-tab-icon">⚡</span><span class="cat-tab-label">Strom</span><span class="cat-tab-count" id="cat-count-power">0</span></button>
+                      <button class="cat-tab" data-cat="sensor" role="tab"><span class="cat-tab-icon">🌡️</span><span class="cat-tab-label">Sensoren</span><span class="cat-tab-count" id="cat-count-sensor">0</span></button>
+                      <button class="cat-tab" data-cat="light" role="tab"><span class="cat-tab-icon">💡</span><span class="cat-tab-label">Licht</span><span class="cat-tab-count" id="cat-count-light">0</span></button>
+                      <button class="cat-tab" data-cat="ventilation" role="tab"><span class="cat-tab-icon">💨</span><span class="cat-tab-label">Lüftung</span><span class="cat-tab-count" id="cat-count-ventilation">0</span></button>
+                      <button class="cat-tab" data-cat="irrigation" role="tab"><span class="cat-tab-icon">💧</span><span class="cat-tab-label">Wasser</span><span class="cat-tab-count" id="cat-count-irrigation">0</span></button>
+                      <button class="cat-tab" data-cat="climate" role="tab"><span class="cat-tab-icon">🌬️</span><span class="cat-tab-label">Klima</span><span class="cat-tab-count" id="cat-count-climate">0</span></button>
+                      <button class="cat-tab" data-cat="hub" role="tab"><span class="cat-tab-icon">🔗</span><span class="cat-tab-label">Hubs</span><span class="cat-tab-count" id="cat-count-hub">0</span></button>
+                  </div>
+              </div>
+              <div class="devices-grid" id="device-cards"></div>
+          </div>
+
+          <!-- Tent Detail Modal -->
+          <div class="modal-overlay" id="panel-overlay">
+            <div class="slide-panel" id="tent-panel">
+                <div class="slide-panel-header">
+                    <div style="display:flex; align-items:center; gap:16px;">
+                        <span id="panel-tent-icon" style="font-size:2.4rem;">🏕️</span>
+                        <div>
+                            <h2 id="panel-tent-name" style="margin:0;">Zelt Name</h2>
+                            <button class="btn-link" id="btn-edit-tent">✏️ Name & Icon ändern</button>
+                        </div>
+                    </div>
+                    <button class="btn text-muted" id="btn-close-panel" style="font-size:1.5rem;">✕</button>
+                </div>
+                <div class="slide-panel-body" id="panel-tent-body">
+                    <div class="tent-metrics" style="padding:20px; border-radius:16px; background:var(--bg-elevated); border:1px solid var(--border-subtle); margin-bottom:24px;">
+                        <div class="tent-metric"><span class="tent-metric-val" id="panel-metric-temp" style="color:var(--accent-heat)">—</span><span class="tent-metric-label">Temperatur</span></div>
+                        <div class="tent-metric"><span class="tent-metric-val" id="panel-metric-hum" style="color:var(--accent-water)">—</span><span class="tent-metric-label">Feuchtigkeit</span></div>
+                        <div class="tent-metric"><span class="tent-metric-val" id="panel-metric-watt" style="color:var(--accent-sun)">—</span><span class="tent-metric-label">Leistung</span></div>
+                        <div class="tent-metric"><span class="tent-metric-val" id="panel-metric-score" style="color:var(--accent-bio)">—</span><span class="tent-metric-label">Gesundheit</span></div>
+                    </div>
+                    <div id="panel-device-categories"></div>
+                    <div style="margin-top:60px; text-align:center;">
+                        <button class="btn btn-outline" style="color:var(--danger); border-color:transparent;" id="btn-delete-tent">🗑️ Zelt löschen</button>
+                    </div>
+                </div>
             </div>
           </div>
 
-          <!-- Page Header -->
-          <div class="page-header">
-            <h1>🔌 Geräte</h1>
-            <div class="page-actions">
-              <button class="btn btn-primary" id="btn-add-device">+ Gerät hinzufügen</button>
+          <!-- Bulk Assign Modal -->
+          <div class="modal-overlay" id="modal-bulk-assign">
+            <div class="glass modal-content" style="max-width: 450px;">
+                <div class="card-header"><h3>Geräte zuweisen</h3><button id="modal-close-bulk" class="btn text-muted">✕</button></div>
+                <div class="card-body">
+                    <p class="text-muted" style="font-size:0.9rem; margin-bottom:20px;">Wähle ein Zelt für die <span id="bulk-assign-count" style="color:var(--accent-bio); font-weight:bold;">0</span> ausgewählten Geräte:</p>
+                    <div class="form-group">
+                        <select id="select-bulk-tent" class="form-input" required>
+                            <option value="">Zelt wählen...</option>
+                        </select>
+                        <label class="form-label">Ziel-Zelt</label>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:32px;">
+                        <button type="button" class="btn btn-outline" id="btn-cancel-bulk">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" id="btn-confirm-bulk">Geräte verschieben</button>
+                    </div>
+                </div>
             </div>
           </div>
 
-          <!-- Kategorie-Tabs -->
-          <div class="category-tabs" id="category-tabs" role="tablist">
-            <button class="cat-tab active" data-cat="all" role="tab">
-              <span class="cat-tab-icon">📋</span>
-              <span class="cat-tab-label">Alle</span>
-              <span class="cat-tab-count" id="cat-count-all">0</span>
-            </button>
-            <button class="cat-tab" data-cat="power" role="tab">
-              <span class="cat-tab-icon">⚡</span>
-              <span class="cat-tab-label">Strom</span>
-              <span class="cat-tab-count" id="cat-count-power">0</span>
-            </button>
-            <button class="cat-tab" data-cat="sensor" role="tab">
-              <span class="cat-tab-icon">🌡️</span>
-              <span class="cat-tab-label">Sensoren</span>
-              <span class="cat-tab-count" id="cat-count-sensor">0</span>
-            </button>
-            <button class="cat-tab" data-cat="light" role="tab">
-              <span class="cat-tab-icon">💡</span>
-              <span class="cat-tab-label">Licht</span>
-              <span class="cat-tab-count" id="cat-count-light">0</span>
-            </button>
-            <button class="cat-tab" data-cat="ventilation" role="tab">
-              <span class="cat-tab-icon">💨</span>
-              <span class="cat-tab-label">Lüftung</span>
-              <span class="cat-tab-count" id="cat-count-ventilation">0</span>
-            </button>
-            <button class="cat-tab" data-cat="irrigation" role="tab">
-              <span class="cat-tab-icon">💧</span>
-              <span class="cat-tab-label">Wasser</span>
-              <span class="cat-tab-count" id="cat-count-irrigation">0</span>
-            </button>
-            <button class="cat-tab" data-cat="climate" role="tab">
-              <span class="cat-tab-icon">🌬️</span>
-              <span class="cat-tab-label">Klima</span>
-              <span class="cat-tab-count" id="cat-count-climate">0</span>
-            </button>
-            <button class="cat-tab" data-cat="hub" role="tab">
-              <span class="cat-tab-icon">🔗</span>
-              <span class="cat-tab-label">Hubs</span>
-              <span class="cat-tab-count" id="cat-count-hub">0</span>
-            </button>
-          </div>
-
-          <!-- Geräte-Grid (dynamisch befüllt) -->
-          <div class="devices-grid" id="device-cards"></div>
-
-          <!-- Lüftungs-Sektion (innerhalb Geräte) -->
-          <div class="ventilation-section card glass" id="ventilation-panel" style="display:none;">
-            <div class="ventilation-hero">
-              <div class="fan-icon-wrap" id="fan-icon-wrap">
-                <span class="fan-icon" id="fan-icon">💨</span>
-              </div>
-              <div class="ventilation-status-text">
-                <h3 id="vent-status-label">Lüftung Standby</h3>
-                <p id="vent-trigger-info" class="text-muted">Kein Trigger aktiv</p>
-              </div>
-              <div class="ventilation-controls">
-                <label class="switch-wrap">
-                  <span>Auto</span>
-                  <input type="checkbox" id="vent-manual-toggle">
-                  <span class="switch"></span>
-                  <span>Manuell</span>
-                </label>
-                <button class="btn btn-primary" id="btn-vent-manual" style="display:none;">
-                  <span id="vent-btn-label">Einschalten</span>
-                </button>
-              </div>
-            </div>
-            <div class="ventilation-rules">
-              <div class="rule-row">
-                <label>Max. Temperatur: <strong id="vent-temp-val">28°C</strong></label>
-                <input type="range" id="vent-temp-threshold" min="20" max="40" value="28" step="1">
-              </div>
-              <div class="rule-row">
-                <label>Max. Luftfeuchtigkeit: <strong id="vent-hum-val">75%</strong></label>
-                <input type="range" id="vent-hum-threshold" min="40" max="95" value="75" step="1">
-              </div>
-            </div>
-            <div class="vent-log" id="vent-log" style="margin-top: 15px; font-size: 0.8rem; color: var(--text-muted);">
-              <!-- Timeline der letzten Ereignisse -->
+          <!-- Add Tent Modal -->
+          <div class="modal-overlay" id="modal-add-tent">
+            <div class="glass modal-content">
+                <div class="card-header"><h3 id="modal-tent-title">Neues Zelt anlegen</h3><button id="modal-close-tent" class="btn text-muted">✕</button></div>
+                <form id="form-add-tent" class="card-body">
+                    <input type="hidden" id="tent-edit-id" value="">
+                    <div class="form-group">
+                        <label class="text-muted" style="font-size:0.8rem; margin-bottom:8px; display:block;">Icon wählen:</label>
+                        <div class="icon-picker" id="tent-icon-picker">
+                            <button type="button" class="icon-picker-btn active">🌿</button>
+                            <button type="button" class="icon-picker-btn">🌱</button>
+                            <button type="button" class="icon-picker-btn">🪴</button>
+                            <button type="button" class="icon-picker-btn">🌾</button>
+                            <button type="button" class="icon-picker-btn">🌻</button>
+                            <button type="button" class="icon-picker-btn">🌺</button>
+                            <button type="button" class="icon-picker-btn">🍀</button>
+                            <button type="button" class="icon-picker-btn">🏕️</button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top:24px;"><input type="text" id="tent-name" class="form-input" placeholder=" " required><label class="form-label" for="tent-name">Name</label></div>
+                    <div class="form-group"><input type="text" id="tent-desc" class="form-input" placeholder=" "><label class="form-label">Beschreibung (optional)</label></div>
+                    
+                    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">
+                        <button type="button" class="btn btn-outline" id="btn-cancel-tent">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary" id="btn-save-tent">Zelt anlegen</button>
+                    </div>
+                </form>
             </div>
           </div>
 

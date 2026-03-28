@@ -5,3 +5,10 @@ __pycache__/
 growmate.db
 config.json
 .vscode/
+
+# Environment and Logs
+.venv/
+*.log
+
+# Temporary template files
+templates/*.part

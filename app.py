@@ -105,29 +105,31 @@ def api_analysis_history():
 def run_advisor_loop():
     """Thread-Loop für die automatische 60-Sekunden-Analyse."""
     import analyzer
-    with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "advisor_debug.log")
+    
+    with open(log_path, "a") as f:
         f.write(f"\n[{datetime.now()}] Advisor-Loop Thread gestartet\n")
         f.write(f"[{datetime.now()}] Analyzer-Pfad: {analyzer.__file__}\n")
     
     while True:
         try:
-            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+            with open(log_path, "a") as f:
                 f.write(f"[{datetime.now()}] Starte Analyse-Zyklus...\n")
             
             # Analyse triggern
             tips = analyzer.analyze_plant_needs()
             
-            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+            with open(log_path, "a") as f:
                 f.write(f"[{datetime.now()}] Analyse abgeschlossen: {len(tips)} Tipps gefunden\n")
             
             # In Datenbank speichern
             add_analysis_record(json.dumps(tips))
             
-            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+            with open(log_path, "a") as f:
                 f.write(f"[{datetime.now()}] Ergebnisse gespeichert.\n")
                 
         except Exception as e:
-            with open("/home/gov-k/growmate_dev/advisor_debug.log", "a") as f:
+            with open(log_path, "a") as f:
                 f.write(f"[{datetime.now()}] KRITISCHER FEHLER im Advisor-Loop: {str(e)}\n")
             logger.error(f"Fehler im Advisor-Loop: {e}")
         
@@ -188,8 +190,15 @@ def api_energy_history():
 @app.route("/api/devices")
 def api_devices():
     """Alle konfigurierten Geräte mit aktuellem Status (non-blocking)."""
+    import mock_data_system
     config_data = load_config()
     devices = config_data.get("devices", [])
+    
+    # Füge virtuelle Geräte hinzu, falls Demo aktiv (De-dupliziert)
+    real_devices = config_data.get("devices", [])
+    real_names = {d.get("name") for d in real_devices}
+    virtual_devices = [d for d in mock_data_system.get_virtual_devices() if d.get("name") not in real_names]
+    devices = real_devices + virtual_devices
     
     # Holen der aktuellsten Werte aus der DB (Cache-Ersatz)
     latest_sensors = {r["sensor_name"]: r for r in get_latest_sensor_readings()}
@@ -200,26 +209,45 @@ def api_devices():
         name = device.get("name", "")
         dtype = device.get("type", "")
         
+        # Bestimme Kategorie (Priorität: Gerät-Attribut > Type-Mapping)
+        category = device.get("category")
+        if not category:
+            if dtype == "tapo_plug": category = "power"
+            elif dtype == "hub": category = "hub"
+            else: category = "sensor"
+
         dev_info = {
             "name": name,
             "type": dtype,
-            "category": "plug" if dtype == "tapo_plug" else "sensor",
+            "category": category,
             "ip": device.get("ip", ""),
             "mac": device.get("mac", ""),
             "enabled": device.get("enabled", True),
+            "tent_id": device.get("tent_id"),
             "online": False,
+            "virtual": device.get("virtual", False),
             "timestamp": None
         }
 
         # Daten-Mapping aus DB-Readings
-        if dtype == "tapo_plug":
+        if dtype == "tapo_plug" or category in ["power", "light", "ventilation", "irrigation", "climate"]:
             reading = latest_energy.get(name)
             if reading:
                 dev_info["online"] = True
-                dev_info["device_on"] = True # Wenn wir ein Reading haben, war er zumindest kürzlich online
-                dev_info["power_w"] = reading.get("power_w")
+                dev_info["device_on"] = True 
+                dev_info["power_w"] = reading.get("power_w", 0)
                 dev_info["timestamp"] = reading.get("timestamp")
-        elif dtype == "govee_ble":
+            
+            # Falls es ein Plug ist aber keine Energie-Daten hat, schau bei Sensoren (z.B. Heizmatte als Sensor geloggt)
+            if not reading:
+                reading = latest_sensors.get(name)
+                if reading:
+                    dev_info["online"] = True
+                    dev_info["temperature"] = reading.get("temperature")
+                    dev_info["humidity"] = reading.get("humidity")
+                    dev_info["timestamp"] = reading.get("timestamp")
+
+        elif dtype in ["govee_ble", "tapo_sensor", "shelly_device", "mqtt_device"] or category == "sensor":
             reading = latest_sensors.get(name)
             if reading:
                 dev_info["online"] = True
@@ -227,6 +255,9 @@ def api_devices():
                 dev_info["humidity"] = reading.get("humidity")
                 dev_info["battery"] = reading.get("battery")
                 dev_info["timestamp"] = reading.get("timestamp")
+        
+        elif category == "hub":
+            dev_info["online"] = True # Hubs im Demo Mode immer online
 
         result.append(dev_info)
 
@@ -409,10 +440,11 @@ def api_status():
 
         name = d.get("name")
         dtype = d.get("type")
+        is_virtual = d.get("virtual", False)
 
         # Finde letztes Update
         last_ts_str = None
-        if dtype in ["govee_ble", "tapo_sensor", "tapo_hub"]:
+        if dtype in ["govee_ble", "tapo_sensor", "tapo_hub", "shelly_device", "mqtt_device"]:
             if name in latest_sensors:
                 last_ts_str = latest_sensors[name]["timestamp"]
         elif dtype == "tapo_plug":
@@ -429,7 +461,11 @@ def api_status():
         try:
             # SQLite datetime format: "2024-03-18 15:10:00"
             last_ts = datetime.strptime(last_ts_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
-            if last_ts < cutoff:
+            # Problem-Fix: Mock-Daten haben oft andere Timezones oder Drifts
+            # Wenn virtual, sind wir großzügiger
+            current_cutoff = cutoff if not is_virtual else (datetime.now(timezone.utc) - timedelta(hours=24))
+            
+            if last_ts < current_cutoff:
                 delta_mins = int((datetime.now(timezone.utc) - last_ts).total_seconds() / 60)
                 issues.append({"device": name, "message": f"Keine Daten seit {delta_mins} Minuten."})
         except Exception:
@@ -667,6 +703,96 @@ def api_device_rename():
 
     return jsonify({"success": True, "message": "Gerät erfolgreich umbenannt"})
 
+# ─── API: Tents ─────────────────────────────────────────────────────
+
+@app.route("/api/tents", methods=["GET"])
+def api_tents_get():
+    """Gibt alle Zelte zurück."""
+    config = load_config()
+    return jsonify({"success": True, "data": config.get("tents", [])})
+
+@app.route("/api/tents", methods=["POST"])
+def api_tents_save():
+    """Zelt hinzufügen oder aktualisieren."""
+    data = request.get_json()
+    if not data or "id" not in data or "name" not in data:
+        return jsonify({"success": False, "message": "Zelt-Daten unvollständig"}), 400
+
+    config = load_config()
+    tents = config.get("tents", [])
+    
+    # Check if exists
+    found = False
+    for i, t in enumerate(tents):
+        if t.get("id") == data["id"]:
+            tents[i] = data
+            found = True
+            break
+            
+    if not found:
+        tents.append(data)
+        
+    config["tents"] = tents
+    save_config(config)
+    return jsonify({"success": True, "message": "Zelt gespeichert"})
+
+@app.route("/api/tents/<tent_id>", methods=["DELETE"])
+def api_tents_delete(tent_id):
+    """Zelt löschen und Geräte-Zuweisungen entfernen."""
+    config = load_config()
+    tents = config.get("tents", [])
+    config["tents"] = [t for t in tents if t.get("id") != tent_id]
+    
+    # Update devices to remove tent_id
+    for dev in config.get("devices", []):
+        if dev.get("tent_id") == tent_id:
+            dev["tent_id"] = None
+            
+    save_config(config)
+    return jsonify({"success": True, "message": "Zelt gelöscht"})
+
+@app.route("/api/devices/update", methods=["POST"])
+def api_devices_update():
+    """Geräte-Eigenschaften aktualisieren (z.B. tent_id)."""
+    data = request.get_json()
+    name = data.get("name")
+    if not name:
+        return jsonify({"success": False, "message": "Name fehlt"}), 400
+
+    config = load_config()
+    devices = config.get("devices", [])
+    
+    # Payload-Abstraktion: Support für {name, edits: {...}} oder flach {name, ...}
+    updates = data.get("edits", data)
+    
+    found = False
+    for d in devices:
+        if d.get("name") == name:
+            for k, v in updates.items():
+                if k != "name":
+                    d[k] = v
+            found = True
+            break
+
+    if not found:
+        # Check if it was a virtual device and promote it
+        import mock_data_system
+        virtual_dev = next((d for d in mock_data_system.get_virtual_devices() if d.get("name") == name), None)
+        if virtual_dev:
+            # Promote to real config
+            new_dev = virtual_dev.copy()
+            for k, v in updates.items():
+                if k != "name":
+                    new_dev[k] = v
+            devices.append(new_dev)
+            config["devices"] = devices
+            found = True
+        else:
+            return jsonify({"success": False, "message": "Gerät nicht gefunden"}), 404
+
+    save_config(config)
+    return jsonify({"success": True, "message": "Gerät aktualisiert"})
+
 # ─── App Start ──────────────────────────────────────────────────────
 
 def main():
@@ -693,6 +819,11 @@ def main():
 
     # Datenbank initialisieren
     init_db()
+    
+    # Demo-System initialisieren
+    import mock_data_system
+    mock_data_system.clean_mock_config()
+    
     logger.info("Datenbank initialisiert.")
 
     # Scheduler starten
@@ -704,9 +835,13 @@ def main():
     threading.Thread(target=poll_all_sensors, daemon=True).start()
 
     # Flask starten
-    config = load_config()
-    host = config.get("server_host", "0.0.0.0")
-    port = config.get("server_port", 5000)
+    config_data = load_config()
+    host = config_data.get("server_host", "0.0.0.0")
+    port = config_data.get("server_port", 5000)
+
+    # Advisor-Thread starten
+    advisor_thread = threading.Thread(target=run_advisor_loop, daemon=True)
+    advisor_thread.start()
 
     logger.info(f"GrowMate startet auf http://{host}:{port}")
     app.run(host=host, port=port, debug=False, use_reloader=False)
@@ -914,12 +1049,4 @@ def api_admin_restore():
 # ─── Main ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    init_db()
-    
-    # Advisor-Thread starten
-    advisor_thread = threading.Thread(target=run_advisor_loop, daemon=True)
-    advisor_thread.start()
-    
-    port = int(os.environ.get("PORT", 5001))
-    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    main()
