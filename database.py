@@ -246,29 +246,27 @@ def get_energy_history(device_name=None, hours=24):
     return [dict(r) for r in rows]
 
 
-def get_daily_light_hours(device_name):
-    """Berechnet die 'An'-Dauer einer Lampe für den heutigen Tag in Stunden."""
+def get_daily_light_hours(device_name, interval_minutes=5):
+    """
+    Berechnet die 'An'-Dauer einer Lampe für den heutigen Tag in Stunden.
+    interval_minutes: Polling-Intervall, wird vom Aufrufer übergeben (keine Config-Last hier).
+    """
     conn = get_db()
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Zähle Einträge, bei denen eine Leistung > 5W gemessen wurde
-    # (Wir nehmen an, dass das Polling-Intervall konstant ist)
-    row = conn.execute("""
-        SELECT COUNT(*) as count
-        FROM energy_readings
-        WHERE device_name = ? AND timestamp >= ? AND power_w > 5
-    """, (device_name, today_start)).fetchone()
-    
-    # Hole Polling-Intervall aus Config oder Default (5 Min)
-    from config import load_config
-    cfg = load_config()
-    interval_mins = cfg.get("polling_interval_minutes", 5)
-    
-    count = row["count"] if row else 0
-    hours = (count * interval_mins) / 60.0
-    
-    conn.close()
-    return hours
+    try:
+        today_start = datetime.now().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).strftime("%Y-%m-%d %H:%M:%S")
+
+        row = conn.execute("""
+            SELECT COUNT(*) as count
+            FROM energy_readings
+            WHERE device_name = ? AND timestamp >= ? AND power_w > 5
+        """, (device_name, today_start)).fetchone()
+
+        count = row["count"] if row else 0
+        return (count * interval_minutes) / 60.0
+    finally:
+        conn.close()
 
 
 # ─── Diary Entries ──────────────────────────────────────────────────
@@ -371,27 +369,32 @@ def get_plant_height_history():
 def add_growth_metric(sensor_name, vpd=None, dli=None):
     """Speichert berechnete Wachstums-Metriken."""
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO growth_metrics (sensor_name, vpd, dli)
-        VALUES (?, ?, ?)
-    """, (sensor_name, vpd, dli))
-    conn.commit()
+    try:
+        conn.execute("""
+            INSERT INTO growth_metrics (sensor_name, vpd, dli)
+            VALUES (?, ?, ?)
+        """, (sensor_name, vpd, dli))
+        conn.commit()
+    finally:
+        conn.close()
 
 def get_latest_growth_metrics():
     """Gibt die aktuellsten Metriken für alle Sensoren zurück."""
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT m1.*
-        FROM growth_metrics m1
-        JOIN (
-            SELECT sensor_name, MAX(timestamp) as max_ts
-            FROM growth_metrics
-            GROUP BY sensor_name
-        ) m2 ON m1.sensor_name = m2.sensor_name AND m1.timestamp = m2.max_ts
-    """)
-    return [dict(row) for row in cursor.fetchall()]
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT m1.*
+            FROM growth_metrics m1
+            JOIN (
+                SELECT sensor_name, MAX(timestamp) as max_ts
+                FROM growth_metrics
+                GROUP BY sensor_name
+            ) m2 ON m1.sensor_name = m2.sensor_name AND m1.timestamp = m2.max_ts
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
 
 def get_device_config(device_name):
     """Lädt die Konfiguration PPFD/Wachstumslicht für ein Gerät."""
@@ -423,7 +426,6 @@ def get_plants(show_archived=False):
     return [dict(r) for r in rows]
 
 
-@db_retry()
 @db_retry()
 def archive_plant(plant_id, archived=True):
     """Archiviert oder de-archiviert eine Pflanze."""

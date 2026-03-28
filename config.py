@@ -138,3 +138,12 @@ def get_devices_by_type(device_type):
     if not isinstance(devices, list):
         return []
     return [d for d in devices if isinstance(d, dict) and d.get("type") == device_type]
+
+
+def _invalidate_config_cache():
+    """
+    Invalidiert den Config-Cache nach einem Restore.
+    load_config() liest direkt von Disk ohne Cache,
+    daher reicht hier ein No-Op als explizite Schnittstelle.
+    """
+    pass

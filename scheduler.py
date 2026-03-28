@@ -18,7 +18,6 @@ import os
 from datetime import datetime
 import threading
 import time
-import os
 import random
 import mock_data_system
 
@@ -107,7 +106,8 @@ def poll_all_sensors():
                             # ─── NEU: DLI Berechnung ───────────────────────────
                             dev_cfg = database.get_device_config(name)
                             if dev_cfg and dev_cfg.get("is_growth_light") and dev_cfg.get("ppfd_value"):
-                                hours_on = database.get_daily_light_hours(name)
+                                interval_mins = cfg.get("polling_interval_minutes", 5)
+                                hours_on = database.get_daily_light_hours(name, interval_minutes=interval_mins)
                                 dli = metrics.calculate_dli(dev_cfg["ppfd_value"], hours_on)
                                 if dli is not None:
                                     database.add_growth_metric(name, dli=dli)

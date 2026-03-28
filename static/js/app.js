@@ -122,6 +122,11 @@ function navigateTo(pageName) {
                 if (typeof startAdvisorPolling === 'function') startAdvisorPolling();
             }
             break;
+        case 'analyse':
+            if (typeof loadAnalyse === 'function') {
+                loadAnalyse();
+            }
+            break;
     }
 }
 

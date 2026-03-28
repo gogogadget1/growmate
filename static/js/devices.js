@@ -21,12 +21,16 @@ const DEVICE_CATEGORIES = {
     hub:        { label: 'Hubs',      icon: '🔗', types: ['hub', 'tapo_hub', 'zigbee_hub'] },
 };
 
-function getCategoryForType(type) {
+function getCategoryForType(type, explicitCategory) {
+    // Explizite Kategorie vom Backend hat immer Vorrang
+    if (explicitCategory && DEVICE_CATEGORIES[explicitCategory]) {
+        return explicitCategory;
+    }
     if (!type) return 'power';
     for (const [catKey, cat] of Object.entries(DEVICE_CATEGORIES)) {
         if (cat.types.includes(type)) return catKey;
     }
-    return 'power'; // Fallback
+    return 'power';
 }
 
 // ─── Geräte laden & Render-Logik ────────────────────────────────────
@@ -88,7 +92,8 @@ async function loadDevices() {
             allDevices.forEach(d => {
                 if (!d) return;
                 d.config = configs[d.name] || {};
-                d.category = getCategoryForType(d.type);
+                // Backend-Kategorie hat Vorrang vor Type-Ableitung
+                d.category = getCategoryForType(d.type, d.category);
                 // Assign tent_id safely handling missing/None
                 d.tent_id = d.tent_id || null;
             });
@@ -277,13 +282,14 @@ function renderUnassignedUI() {
     container.innerHTML = unassigned.map(d => {
         const cat = DEVICE_CATEGORIES[d.category] || { icon: '❓' };
         const isSelected = selectedUnassignedDevices.includes(d.name);
+        const statusZone = isSelected
+            ? `<span class="chip-status chip-check">✓</span>`
+            : `<span class="chip-status chip-unassigned">Nicht zugewiesen</span>`;
         return `
-            <div class="mini-device-card ${isSelected ? 'selected' : ''}" onclick="toggleDeviceSelection('${escapeHtml(d.name)}')">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:1.2rem">${cat.icon}</span>
-                    <span style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;">${escapeHtml(d.name)}</span>
-                </div>
-                <span style="font-size:0.6rem; color:var(--text-muted)">Nicht zugewiesen</span>
+            <div class="mini-device-card ${isSelected ? 'selected' : ''}" data-device-name="${escapeHtml(d.name)}" onclick="toggleDeviceSelection('${escapeHtml(d.name)}')">
+                <span style="font-size:1.2rem; flex-shrink:0;">${cat.icon}</span>
+                <span style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0;">${escapeHtml(d.name)}</span>
+                ${statusZone}
             </div>
         `;
     }).join('');
@@ -292,12 +298,30 @@ function renderUnassignedUI() {
 }
 
 window.toggleDeviceSelection = (name) => {
-    if (selectedUnassignedDevices.includes(name)) {
-        selectedUnassignedDevices = selectedUnassignedDevices.filter(n => n !== name);
-    } else {
+    const isNowSelected = !selectedUnassignedDevices.includes(name);
+    if (isNowSelected) {
         selectedUnassignedDevices.push(name);
+    } else {
+        selectedUnassignedDevices = selectedUnassignedDevices.filter(n => n !== name);
     }
-    renderUnassignedUI();
+
+    // Surgically update only the clicked chip — no full re-render to avoid flicker
+    const chipEl = document.querySelector(`.mini-device-card[data-device-name="${CSS.escape(name)}"]`);
+    if (chipEl) {
+        chipEl.classList.toggle('selected', isNowSelected);
+        const statusEl = chipEl.querySelector('.chip-status');
+        if (statusEl) {
+            if (isNowSelected) {
+                statusEl.textContent = '✓';
+                statusEl.className = 'chip-status chip-check';
+            } else {
+                statusEl.textContent = 'Nicht zugewiesen';
+                statusEl.className = 'chip-status chip-unassigned';
+            }
+        }
+    }
+
+    updateBulkAssignVisibility();
 }
 
 function updateBulkAssignVisibility() {

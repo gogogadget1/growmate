@@ -104,35 +104,33 @@ def api_analysis_history():
 
 def run_advisor_loop():
     """Thread-Loop für die automatische 60-Sekunden-Analyse."""
+    import logging.handlers
     import analyzer
+
     log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "advisor_debug.log")
-    
-    with open(log_path, "a") as f:
-        f.write(f"\n[{datetime.now()}] Advisor-Loop Thread gestartet\n")
-        f.write(f"[{datetime.now()}] Analyzer-Pfad: {analyzer.__file__}\n")
-    
+    advisor_logger = logging.getLogger("growmate.advisor")
+
+    # Rotating: max 1MB, max 3 Backup-Dateien
+    if not advisor_logger.handlers:
+        handler = logging.handlers.RotatingFileHandler(
+            log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+        advisor_logger.addHandler(handler)
+        advisor_logger.setLevel(logging.INFO)
+
+    advisor_logger.info("Advisor-Loop Thread gestartet")
+
     while True:
         try:
-            with open(log_path, "a") as f:
-                f.write(f"[{datetime.now()}] Starte Analyse-Zyklus...\n")
-            
-            # Analyse triggern
+            advisor_logger.info("Starte Analyse-Zyklus...")
             tips = analyzer.analyze_plant_needs()
-            
-            with open(log_path, "a") as f:
-                f.write(f"[{datetime.now()}] Analyse abgeschlossen: {len(tips)} Tipps gefunden\n")
-            
-            # In Datenbank speichern
+            advisor_logger.info(f"Analyse abgeschlossen: {len(tips)} Tipps gefunden")
             add_analysis_record(json.dumps(tips))
-            
-            with open(log_path, "a") as f:
-                f.write(f"[{datetime.now()}] Ergebnisse gespeichert.\n")
-                
+            advisor_logger.info("Ergebnisse gespeichert.")
         except Exception as e:
-            with open(log_path, "a") as f:
-                f.write(f"[{datetime.now()}] KRITISCHER FEHLER im Advisor-Loop: {str(e)}\n")
+            advisor_logger.error(f"KRITISCHER FEHLER im Advisor-Loop: {e}", exc_info=True)
             logger.error(f"Fehler im Advisor-Loop: {e}")
-        
         time.sleep(60)
 
 # ─── Frontend ───────────────────────────────────────────────────────
@@ -460,11 +458,13 @@ def api_status():
 
         try:
             # SQLite datetime format: "2024-03-18 15:10:00"
-            last_ts = datetime.strptime(last_ts_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+            last_ts_naive = datetime.strptime(last_ts_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+            # Naive → aware: SQLite speichert UTC, explizit kennzeichnen
+            last_ts = last_ts_naive.replace(tzinfo=timezone.utc)
             # Problem-Fix: Mock-Daten haben oft andere Timezones oder Drifts
             # Wenn virtual, sind wir großzügiger
             current_cutoff = cutoff if not is_virtual else (datetime.now(timezone.utc) - timedelta(hours=24))
-            
+
             if last_ts < current_cutoff:
                 delta_mins = int((datetime.now(timezone.utc) - last_ts).total_seconds() / 60)
                 issues.append({"device": name, "message": f"Keine Daten seit {delta_mins} Minuten."})
