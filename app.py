@@ -9,6 +9,7 @@ import logging
 import threading
 import time
 import json
+import math
 from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify, request, render_template, send_from_directory, send_file
 
@@ -139,6 +140,155 @@ def run_advisor_loop():
 def index():
     demo_active = os.environ.get("GROW_DEMO_MODE", "false").lower() == "true"
     return render_template("index.html", demo_active=demo_active)
+
+
+# ─── API: Dashboard ─────────────────────────────────────────────────
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    """Gibt alle relevanten Daten für das neue Dashboard zurück."""
+    config = load_config()
+    tents = config.get("tents", [])
+    devices = config.get("devices", [])
+    
+    latest_sensors = {r["sensor_name"]: r for r in get_latest_sensor_readings()}
+    latest_energy = {r["device_name"]: r for r in get_latest_energy_readings()}
+    
+    dashboard_tents = []
+    
+    for tent in tents:
+        tent_id = tent.get("id")
+        tent_devices = [d for d in devices if d.get("tent_id") == tent_id]
+        
+        sensors_data = {
+            "temp": None,    
+            "rlf": None,     
+            "vpd": None,      
+            "co2": None       
+        }
+        light_data = {
+            "is_on": False,
+            "next_change_seconds": 0
+        }
+        
+        for dev in tent_devices:
+            name = dev.get("name")
+            dtype = dev.get("type")
+            cat = dev.get("category")
+            
+            if not cat:
+                if dtype == "tapo_plug": cat = "power"
+                elif dtype == "hub": cat = "hub"
+                else: cat = "sensor"
+
+            if cat == "sensor" or dtype in ["govee_ble", "tapo_sensor"]:
+                reading = latest_sensors.get(name)
+                if reading:
+                    if reading.get("temperature") is not None and sensors_data["temp"] is None:
+                        sensors_data["temp"] = reading.get("temperature")
+                    if reading.get("humidity") is not None and sensors_data["rlf"] is None:
+                        sensors_data["rlf"] = reading.get("humidity")
+                        
+            elif cat == "light":
+                reading = latest_energy.get(name)
+                if reading:
+                    light_data["is_on"] = reading.get("power_w", 0) > 1.0
+                else:
+                    light_data["is_on"] = False
+                    
+        # Calculate VPD
+        if sensors_data["temp"] is not None and sensors_data["rlf"] is not None:
+            t = sensors_data["temp"]
+            r = sensors_data["rlf"]
+            try:
+                vpd = (1 - r/100.0) * 0.6108 * math.exp(17.27 * t / (t + 237.3))
+                sensors_data["vpd"] = round(vpd, 2)
+            except Exception:
+                pass
+                
+        strain = tent.get("strain", "Unbekannt")
+        phase = tent.get("phase", "Vegetativ")
+        try:
+            day_current = int(tent.get("day_current", 0))
+        except:
+            day_current = 0
+            
+        try:
+            day_total = int(tent.get("day_total", 0))
+        except:
+            day_total = 0
+
+        dashboard_tents.append({
+            "id": tent_id,
+            "name": tent.get("name", "Unbekannt"),
+            "strain": strain,
+            "phase": phase,
+            "day_current": day_current,
+            "day_total": day_total,
+            "sensors": sensors_data,
+            "light": light_data,
+            "advisor_hint": "System läuft normal"
+        })
+        
+    total_watts = sum(r.get("power_w", 0) for r in latest_energy.values())
+    total_kwh_today = sum((r.get("energy_today_wh", 0) or 0) / 1000.0 for r in latest_energy.values())
+    
+    # Advisor Tips
+    from database import get_diary_entries, get_analysis_history
+    import json
+    
+    recent_entries = get_diary_entries(limit=5)
+    journal_recent = []
+    
+    def get_emoji(etype):
+        emojis = {'Düngung': '🧪', 'Bewässerung': '💧', 'Messung': '📏', 'Umtopfen': '🪴', 'Beschneidung': '✂️', 'Schädlinge': '🐛', 'Sonstiges': '📝'}
+        return emojis.get(etype, '📝')
+
+    for entry in recent_entries:
+        try:
+            dt = datetime.strptime(str(entry["entry_date"]).split(".")[0], "%Y-%m-%d %H:%M:%S")
+            time_str = dt.strftime("%H:%M")
+        except:
+            time_str = str(entry["entry_date"])[:10]
+
+        journal_recent.append({
+            "time": time_str,
+            "icon": get_emoji(entry["entry_type"]),
+            "text": entry["title"]
+        })
+
+    # Intelligente Hinweise (Advisor Tips)
+    analysis_records = get_analysis_history(limit=10)
+    advisor_hints = []
+    
+    for record in analysis_records:
+        try:
+            ts_dt = datetime.strptime(str(record["timestamp"]).split(".")[0], "%Y-%m-%d %H:%M:%S")
+            ts_str = ts_dt.strftime("%Y-%m-%d %H:%M")
+            tips = json.loads(record["results_json"])
+            # Format each tip as an individual entry in the list
+            for tip in tips:
+                advisor_hints.append({
+                    "time": ts_str,
+                    "text": tip.strip()
+                })
+        except Exception as e:
+            continue
+            
+    # Wir begrenzen das flache Array auf 10 Einträge insgesamt
+    advisor_hints = advisor_hints[:10]
+
+    return jsonify({
+        "success": True,
+        "tents": dashboard_tents,
+        "energy": {
+            "watts_now": round(total_watts, 1),
+            "kwh_today": round(total_kwh_today, 2)
+        },
+        "warnings": [],
+        "journal_recent": journal_recent,
+        "advisor_hints": advisor_hints
+    })
 
 
 # ─── API: Sensor-Daten ──────────────────────────────────────────────

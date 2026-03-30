@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
     <style>
         :root {
             --bg-void: #040a06;
@@ -541,43 +542,42 @@
 
         <!-- DASHBOARD -->
         <section class="page active" id="page-dashboard">
-            <div class="glass hero-banner stagger-item" style="animation-delay: 0ms;">
-                <div class="hero-clock" id="hero-clock">00:00:00</div>
-                <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.2rem;">Hauptzelt</div>
-                <div class="hero-score-wrapper">
-                    <svg class="health-gauge" viewBox="0 0 36 36">
-                        <path class="bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke-dasharray="85, 100" />
-                    </svg>
-                    <span class="text-sm text-muted">Zustand</span>
+            <!-- STATUS BAR -->
+            <div class="dash-statusbar">
+              <div class="stat-item" id="stat-power">...</div>
+              <div class="stat-item" id="stat-status">...</div>
+              <div class="stat-item" id="stat-warnings">...</div>
+              <div class="stat-item" id="stat-tents">...</div>
+              <div class="stat-item" id="stat-update">...</div>
+            </div>
+
+            <!-- TENT CARDS HERO -->
+            <div class="dash-tents-grid" id="tentGrid">
+              <!-- dynamisch per JS gefüllt -->
+            </div>
+
+            <!-- SECONDARY ROW -->
+            <div class="dash-secondary-grid">
+              <div class="dash-widget" id="widget-energy">...</div>
+              <div class="dash-widget" id="widget-warnings">...</div>
+              <div class="dash-widget" id="widget-growth">...</div>
+            </div>
+
+            <!-- JOURNAL STRIP -->
+            <div style="margin-top: 32px;">
+                <h3 style="font-size: 1rem; color: var(--text-muted); padding: 0 40px; margin-bottom: 0;">📓 Tagebuch</h3>
+                <div class="dash-journal-strip" id="journalStrip" style="margin-top: 16px;">
+                  <!-- dynamisch per JS gefüllt -->
                 </div>
             </div>
-            
-            <div class="page-header">
-                <h2>Sensoren</h2>
-                <button class="btn btn-outline" id="btn-manual-poll">🔄 Aktualisieren</button>
-            </div>
-            
-            <div class="dashboard-grid" id="sensor-cards">
-                <div class="glass card-body skeleton" style="height: 200px;" id="card-loading"></div>
-            </div>
 
-            <!-- Hidden old canvas containers so chart.js doesn't error on fetch -->
-            <div style="display:none;">
-                <canvas id="chart-temp-mini"></canvas>
-                <canvas id="chart-hum-mini"></canvas>
+            <!-- ADVISOR LIST -->
+            <div style="margin-top: 32px; margin-bottom: 64px;">
+                <h3 style="font-size: 1rem; color: var(--text-muted); padding: 0 40px; margin-bottom: 0;">🧠 Intelligente Hinweise</h3>
+                <div class="dash-advisor-list" id="advisorStrip">
+                  <!-- dynamisch per JS gefüllt -->
+                </div>
             </div>
-
-            <h2>⚡ Energieverbrauch</h2>
-            <div class="energy-scroll" id="energy-cards" style="margin-top:16px;">
-                <div class="glass card-body skeleton energy-card" style="height: 120px;"></div>
-            </div>
-
-            <div class="page-header">
-                <h2>📓 Letzte Einträge</h2>
-                <a href="#diary" class="btn btn-outline" data-page="diary">Alle zeigen →</a>
-            </div>
-            <div id="diary-preview" style="display:flex; flex-direction:column; gap:12px;"></div>
         </section>
 
         <!-- ANALYSE (historically History & Advisor) -->
@@ -941,6 +941,7 @@
     <script src="/static/js/app.js"></script>
     <script src="/static/js/charts.js"></script>
     <script src="/static/js/devices.js?v=3.1"></script>
+    <script src="/static/js/dashboard.js"></script>
     <script src="/static/js/diary.js"></script>
     <script src="/static/js/advisor.js"></script>
 

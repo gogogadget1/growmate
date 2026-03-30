@@ -180,17 +180,20 @@ async function updateAdvisorStatus() {
             // Wenn wir NICHT auf der Ratgeber-Seite sind, zeige Indikator
             if (GrowMate.currentPage !== 'advisor') {
                 navAdvisor.classList.add('has-new-tips');
-                navAdvisor.querySelector('.nav-icon').classList.add('advisor-pulse');
+                let icon = navAdvisor.querySelector('.nav-icon');
+                if (icon) icon.classList.add('advisor-pulse');
                 if (diaryAlert) diaryAlert.style.display = 'block';
             } else {
                 // Wir sind drauf -> Verstecken
                 navAdvisor.classList.remove('has-new-tips');
-                navAdvisor.querySelector('.nav-icon').classList.remove('advisor-pulse');
+                let icon = navAdvisor.querySelector('.nav-icon');
+                if (icon) icon.classList.remove('advisor-pulse');
                 if (diaryAlert) diaryAlert.style.display = 'none';
             }
         } else {
             navAdvisor.classList.remove('has-new-tips');
-            navAdvisor.querySelector('.nav-icon').classList.remove('advisor-pulse');
+            let icon = navAdvisor.querySelector('.nav-icon');
+            if (icon) icon.classList.remove('advisor-pulse');
             if (diaryAlert) diaryAlert.style.display = 'none';
         }
     } catch (e) {

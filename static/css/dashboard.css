@@ -1,0 +1,338 @@
+/* GrowMate Dashboard Redesign CSS */
+
+:root {
+  --bg-primary: #060d06;
+  --bg-card: rgba(10, 28, 10, 0.85);
+  --accent: #2dff7e;
+  --accent-dim: rgba(45, 255, 126, 0.15);
+  --accent-glow: 0 0 12px rgba(45, 255, 126, 0.4);
+  --text-primary: #e8f5e8;
+  --text-dim: #6b9a6b;
+  --border: rgba(45, 255, 126, 0.2);
+  --warn-amber: #ffb830;
+  --warn-red: #ff4444;
+  --radius: 6px;
+}
+
+/* Base override for the dashboard section if needed */
+#page-dashboard.active {
+    background: transparent;
+    padding: 32px 40px;
+    gap: 32px;
+    display: flex;
+    flex-direction: column;
+}
+#page-dashboard:not(.active) {
+    display: none !important;
+}
+
+/* STATUS BAR */
+.dash-statusbar {
+    /* Styles are now inherited from .tent-stats-card and .glass */
+    margin-bottom: 32px;
+}
+.dash-statusbar .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.dash-statusbar .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.dash-statusbar .stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Space Grotesk', sans-serif;
+}
+.dash-statusbar .stat-value.ok { color: var(--accent); }
+.dash-statusbar .stat-value.warn { color: var(--warn-amber); }
+.dash-statusbar .stat-value.crit { color: var(--warn-red); }
+
+/* TENT CARDS HERO */
+.dash-tents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 24px;
+}
+
+.tent-card-hero {
+    display: grid;
+    grid-template-rows: auto auto auto auto auto;
+    padding: 24px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.tent-card-hero:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0 24px rgba(45, 255, 126, 0.6);
+}
+
+.tent-card-hero .tc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.tent-card-hero .tc-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+.tent-card-hero .tc-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+.tent-card-hero .tc-badge {
+    padding: 6px 12px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid var(--border);
+}
+
+/* Metric Grid */
+.tc-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.tc-metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tc-metric-label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.tc-metric-val {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.tc-metric-unit {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+/* Segmented Bars */
+.seg-bar {
+    display: flex;
+    gap: 2px;
+    width: 100%;
+    margin-top: 4px;
+}
+.seg-bar span {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.05); /* very dim empty state */
+    border-radius: 1px;
+}
+.seg-bar span.fill-ok { background: var(--accent); box-shadow: 0 0 4px var(--accent-glow); }
+.seg-bar span.fill-warn { background: var(--warn-amber); box-shadow: 0 0 4px var(--warn-amber); }
+.seg-bar span.fill-crit { background: var(--warn-red); box-shadow: 0 0 4px var(--warn-red); }
+
+/* Light Bar */
+.tc-light {
+    margin-bottom: 24px;
+}
+
+.tc-light-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+}
+
+.tc-light-active { color: var(--warn-amber); font-weight: 700; }
+.tc-light-inactive { color: var(--text-dim); }
+
+.light-strip {
+    height: 8px;
+    background: #111;
+    border-radius: 4px;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+}
+.light-strip .light-on {
+    background: var(--warn-amber);
+    box-shadow: 0 0 8px var(--warn-amber);
+    transition: width 0.3s;
+}
+.light-strip .light-off {
+    background: rgba(255,255,255,0.05);
+    transition: width 0.3s;
+}
+
+/* Sparkline area */
+.tc-sparkline {
+    height: 60px;
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+/* Advisor Chip */
+.advisor-chip {
+    padding: 12px;
+    background: var(--accent-dim);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--accent);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+/* SECONDARY ROW */
+.dash-secondary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-top: 32px;
+}
+
+.dash-widget {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.widget-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.growth-row {
+    margin-bottom: 12px;
+}
+.growth-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    color: var(--text-dim);
+}
+.growth-progress {
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.growth-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+    transition: width 1s ease-in-out;
+}
+
+/* JOURNAL STRIP */
+.dash-journal-strip {
+    display: flex;
+    gap: 24px;
+    overflow-x: auto;
+    padding: 20px 4px; /* padding right/left inside for shadow cut off */
+    border-top: 1px solid var(--border);
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-dim) transparent;
+    margin-top: 32px;
+}
+.dash-journal-strip::-webkit-scrollbar {
+    height: 6px;
+}
+.dash-journal-strip::-webkit-scrollbar-thumb {
+    background: var(--accent-dim);
+    border-radius: 3px;
+}
+
+/* ADVISOR LIST (Vertical) */
+.dash-advisor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 40px;
+    margin-top: 16px;
+}
+
+.dash-advisor-list .journal-entry {
+    width: 100%; /* Full width for vertical list */
+    max-width: none;
+    flex: none;
+}
+
+.journal-entry {
+    flex: 0 0 auto;
+    width: 320px;
+    transition: background 0.3s;
+}
+.journal-entry:hover {
+    background: rgba(45, 255, 126, 0.05);
+}
+
+.journal-icon {
+    font-size: 1.5rem;
+    padding: 10px;
+    background: rgba(45, 255, 126, 0.05); /* Softer icon background */
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+}
+
+.journal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.journal-time {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+.journal-text {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+/* responsive overrides */
+@media(max-width: 768px) {
+    .dash-tents-grid {
+        grid-template-columns: 1fr;
+    }
+    .tc-metrics {
+        grid-template-columns: 1fr;
+    }
+}

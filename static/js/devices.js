@@ -489,18 +489,26 @@ function updateStatusBar() {
     const offline = allDevices.length - online;
     const totalWatt = allDevices.reduce((acc, d) => acc + (d.power_w || 0), 0);
 
-    document.getElementById('statusbar-online-count').textContent = online;
-    document.getElementById('statusbar-offline-count').textContent = offline;
-    document.getElementById('statusbar-total-watt').textContent = totalWatt.toFixed(1);
+    const eOnline = document.getElementById('statusbar-online-count');
+    if(eOnline) eOnline.textContent = online;
+    
+    const eOffline = document.getElementById('statusbar-offline-count');
+    if(eOffline) eOffline.textContent = offline;
+    
+    const eWatt = document.getElementById('statusbar-total-watt');
+    if(eWatt) eWatt.textContent = totalWatt.toFixed(1);
 
     // Warnings if any device has health issues (placeholder logic)
     const warnCount = allDevices.filter(d => d.online === false).length;
     const warnPill = document.getElementById('statusbar-warn-pill');
-    if (warnCount > 0) {
-        warnPill.style.display = 'flex';
-        document.getElementById('statusbar-warn-count').textContent = warnCount;
-    } else {
-        warnPill.style.display = 'none';
+    if (warnPill) {
+        if (warnCount > 0) {
+            warnPill.style.display = 'flex';
+            const wCount = document.getElementById('statusbar-warn-count');
+            if (wCount) wCount.textContent = warnCount;
+        } else {
+            warnPill.style.display = 'none';
+        }
     }
 }
 
