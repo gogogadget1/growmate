@@ -27,7 +27,7 @@ Dank des strikt modularen Aufbaus in Python und Flask läuft GrowMate plattformu
 
 ### 1. Repository Klonen
 ```bash
-git clone -b growmate-refined-v2.1 https://github.com/govindakoresch-lang/growmate.git
+git clone -b growmate-refined-v2.1 https://github.com/gogogadget1/growmate.git
 cd growmate
 ```
 
