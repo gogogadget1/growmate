@@ -1,29 +1,71 @@
-# 🌱 GrowMate v2.1
-**Autarkes Botanik-Monitoring & Edge-AI System**
+<div align="center">
+  <img src="docs/images/hero_banner.png" alt="GrowMate Banner" width="100%">
 
-GrowMate ist ein Local-First-System zur iterativen Überwachung und Automation von Pflanzenumgebungen. Es wurde mit einem kompromisslosen Fokus auf **maximale Datensicherheit und Unabhängigkeit** entwickelt. Anstatt Umgebungsdaten an externe Cloud-Anbieter zu senden, verarbeitet GrowMate alle Metriken lokal. Eine integrierte Vektor-Engine (ONNX) vergleicht Sensordaten in Echtzeit mit wissenschaftlichen Botanik-Regeln, um proaktiv vor Stressfaktoren zu warnen.
+  # 🌱 GrowMate v2.1
+  *Autarkes Botanik-Monitoring & Edge-AI System*
+
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+  [![Local First](https://img.shields.io/badge/Architecture-Local%20First-success)](#)
+  [![Edge AI](https://img.shields.io/badge/AI-ONNX%20Edge-purple)](#)
+  [![Powered by Python](https://img.shields.io/badge/Backend-Python%20%7C%20Flask-3776AB?logo=python&logoColor=white)](#)
+</div>
+
+<br />
+
+GrowMate ist ein Local-First-System zur iterativen Überwachung und Automation von Pflanzenumgebungen. Es wurde mit einem kompromisslosen Fokus auf **maximale Datensicherheit und Unabhängigkeit** entwickelt. Anstatt private Umgebungs- und Telemetriedaten an undurchsichtige Cloud-Infrastrukturen zu senden, behält GrowMate alle Informationen lokal.
 
 ---
 
-## ✨ Kernfunktionen
+## 📸 Projekt-Screenshots (Live Applikation)
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <b>Dashboard (Real-Time Metriken)</b><br>
+      <img src="docs/images/dashboard_real.png" width="400" alt="Dashboard Ansicht">
+    </td>
+    <td align="center">
+      <b>Analyse (VPD & Klima-Visualisierung)</b><br>
+      <img src="docs/images/analysis_real.png" width="400" alt="Analyse Charts">
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <b>Tagebuch (Ereignis-Tracking)</b><br>
+      <img src="docs/images/diary_real.png" width="400" alt="Tagebuch Ansicht">
+    </td>
+    <td align="center">
+      <b>Geräteverwaltung (Sensoren)</b><br>
+      <img src="docs/images/devices_real.png" width="400" alt="Gerätemanagement">
+    </td>
+  </tr>
+</table>
+
+---
+
+## ✨ Features
 
 *   🧠 **Lokale Edge-AI (RAG):** Nutzt eine leichtgewichtige, token-effiziente ONNX-Vektordatenbank, um anhand pflanzenspezifischer Parameter dynamische Warnungen auszugeben (z. B. Hitzestress, Luftfeuchtigkeit). Vollständig offline – kein OpenAI-Key zur Laufzeit nötig!
 *   🔒 **Radikale Autarkie (Local-First):** Verwendet *Bluetooth Low Energy* für passive Govee-Klimasensoren und die lokale Netzwerk-API (`PyP100`) für Tapo-Hubs und -Steckdosen. Null Hersteller-Cloud-Zwang!
 *   🔬 **Wissenschaftliches Monitoring:** Berechnet im Hintergrund hochpräzise agrarwissenschaftliche Werte wie das Vapor Pressure Deficit (**VPD**) und die notwendige Beleuchtungsstärke.
-*   🛡️ **Sichere Architektur:** Konsequente Trennung von Logic und Credentials via `.env`. Die lokale Telemetrie-Datenbank läuft auf einer gehärteten SQLite-Instanz (WAL-Modus) für Langlebigkeit bei intensivem I/O-Dauerbetrieb (perfekt für SD-Karten & Edge Devices).
+*   🛡️ **Sichere Architektur:** Konsequente Trennung von Logic und Credentials via `.env`. Die lokale Telemetrie-Datenbank läuft auf einer gehärteten SQLite-Instanz (WAL-Modus) für extrem robuste I/O-Prozesse (ideal für SD-Karten/Edge Devices).
 
 ---
 
-## 🛠️ Systemanforderungen & Kompatibilität
+<details>
+<summary><b>🛠️ Systemanforderungen & Kompatibilität (Jetzt ausklappen)</b></summary>
+<br>
+Dank des strikt modularen Aufbaus in Python und Flask läuft GrowMate plattformunabhängig und ressourcenschonend:
 
-Dank des strikt modularen Aufbaus in Python und Flask läuft GrowMate plattformunabhängig:
-*   **Linux Edge-Devices:** Raspberry Pi, Kubuntu, Debian.
-*   **Windows Server:** Kompatibel mit traditionellem x64 sowie modernem **Windows 11 ARM64** (z.B. Snapdragon Galaxy Books).
-*   **Hintergrund-Betrieb:** Unterstützt den vollkommen unsichtbaren Headless-Betrieb via `.vbs` oder PowerShell `WMI Win32_Process`-Injektion unter Windows.
+*   🐧 **Linux Edge-Devices:** Raspberry Pi, Kubuntu, Debian.
+*   🪟 **Windows Server:** Kompatibel mit traditionellem x64 sowie modernem **Windows 11 ARM64** (z.B. Snapdragon Prozessoren).
+*   👻 **Hintergrund-Betrieb (Headless):** Unterstützt den vollkommen unsichtbaren Headless-Betrieb via `.vbs` oder PowerShell `WMI Win32_Process`-Injektion.
 
----
+</details>
 
-## 🚀 Installation & Setup
+<details>
+<summary><b>🚀 Installation & Setup Anleitung (Jetzt ausklappen)</b></summary>
+<br>
 
 ### 1. Repository Klonen
 ```bash
@@ -48,15 +90,14 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 4. Konfiguration (WICHTIG!)
-Die Zugangsdaten für Netzwerkgeräte (wie Tapo) werden **nicht** in die `config.json` geschrieben, sondern durch Umgebungsvariablen gesichert:
+### 4. Konfiguration (Datensicherheit)
+Die Zugangsdaten für Netzwerkgeräte (wie Tapo) werden **niemals** in die `config.json` geschrieben, sondern verschlüsselt durch Umgebungsvariablen gesichert:
 
-1.  Kopieren Sie die Vorlagendatei:
-    ```bash
-    cp .env.example .env
-    ```
-2.  Öffnen Sie die `.env` und tragen Sie Ihre Anmeldedaten ein (z.B. Ihre Tapo-E-Mail und das Passwort).
+1.  Kopieren Sie die Vorlagendatei: `cp .env.example .env`
+2.  Öffnen Sie die `.env` und tragen Sie Ihre Anmeldedaten ein.
 3.  Die `config.json` steuert lediglich die Topologie der Sensoren und das Timer-Intervall.
+
+</details>
 
 ---
 
@@ -66,7 +107,7 @@ Starten Sie die Applikation einfach über den Haupteinstiegspunkt:
 ```bash
 python app.py
 ```
-Sobald der Server gestartet ist, rufen Sie das Web-Dashboard lokal im Netzwerk auf:
-👉 **http://127.0.0.1:5000** oder die Host-IP Ihres Servers.
+Sobald der Server hochgefahren ist, rufen Sie das Web-Dashboard lokal im Browser auf:
+👉 **http://127.0.0.1:5000** oder die Host-IP Ihres dedizierten Servers.
 
-*(Hinweis für Windows Server: Um GrowMate vor Verbindungsabbrüchen oder falschen SSH-Sessions zu schützen, empfehlen wir, die Applikation über die Windows Aufgabenplanung oder autarke WMI-Skripte als Hintergrunddienst zu persistieren.)*
+*(Architektur-Empfehlung: Um GrowMate vor Verbindungsabbrüchen zu schützen, empfehlen wir, die Applikation über die Windows Aufgabenplanung oder autarke WMI-Skripte als Hintergrunddienst zu verankern.)*
