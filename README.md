@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/images/hero_banner.png" alt="GrowMate Banner" width="100%">
+  <img src="docs/images/hero_banner.png" alt="GrowMate Banner" width="75%">
 
   # 🌱 GrowMate v2.1
   *Autarkes Botanik-Monitoring & Edge-AI System*
