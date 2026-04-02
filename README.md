@@ -1,96 +1,22 @@
-# 🌿 GrowMate – Professional Grow Monitor & Advisor
+Titel & Vision
 
-> **Dev-Branch: Version 1.3** — Diese Version nutzt vollständig lokale Edge-AI via ONNX. Kein Cloud-Backend, kein Internet zur Laufzeit. Der neue semantische Ratgeber (`/api/analyze/text`) liefert Echtzeit-Pflegetipps direkt auf deiner CPU.
+🌱 GrowMate
+Autarkes Botanik-Monitoring & Edge-AI System
 
-GrowMate ist ein autarkes, privatsphäre-fokussiertes Softwaresystem zur Überwachung, Steuerung und wissenschaftlichen Dokumentation der Pflanzenzucht. Entwickelt für den Betrieb auf lokaler Hardware (Raspberry Pi, Laptops), verzichtet es bewusst auf Cloud-Abhängigkeiten und bietet dennoch modernste Features.
+GrowMate ist ein Local-First-System zur Überwachung und Steuerung von Pflanzenumgebungen. Es wurde mit einem klaren Fokus auf maximale Datensicherheit und Unabhängigkeit entwickelt. Anstatt Umgebungsdaten an externe Cloud-Anbieter zu senden, verarbeitet GrowMate alle Metriken lokal. Eine integrierte Vektor-Engine (ONNX) vergleicht Sensordaten in Echtzeit mit wissenschaftlichen Botanik-Regeln, um proaktiv vor Stressfaktoren zu warnen.
 
----
+Kernfunktionen (Features)
 
-## ✨ Highlights
+Lokale Edge-AI: Nutzt eine leichtgewichtige, token-effiziente ONNX-Vektordatenbank, um anhand von über 150 pflanzenspezifischen Parametern Warnungen auszugeben (z. B. Hitzestress, VPD-Anomalien). Kein OpenAI-Key, keine Internetverbindung zur Laufzeit nötig.
 
-*   **🤖 v1.3 – Vollständige lokale Edge-AI (ONNX)**: Semantische Textsuche mit MiniLM-L6-V2 via ONNX-Runtime. 154 Wissenseinträge, vorberechnet als Vektoren. Kein Internet, kein GPU-Bedarf.
-*   **🧠 Botany AI Advisor**: Integriertes botanisches Wissen analysiert Sensordaten in Echtzeit und gibt präzise Pflegehinweise (VPD, Hitzestress, Schimmelwarnung).
-*   **💎 Premium Glassmorphism UI**: Ein hochmodernes, visuell ansprechendes Interface mit Dark Mode und flüssigen Animationen.
-*   **🛡️ Safety First**: Mehrstufige Bestätigungsdialoge schützen vor versehentlichem Löschen wichtiger Daten oder Geräte.
-*   **🔌 IoT Integration**: Volle Unterstützung für Govee BLE Sensoren und Tapo Smart Plugs.
-*   **🏠 Local-First & Zero-Root**: Deine Daten gehören dir. Das System läuft nativ auf deinem Host ohne Docker-Zwang oder Root-Rechte.
+Radikale Autarkie: Bluetooth Low Energy (für Govee-Klimasensoren) und lokale IP-Steuerung (für Tapo-Steckdosen) ersetzen den Zwang zu Hersteller-Clouds.
 
----
+Wissenschaftliches Monitoring: Berechnet im Hintergrund kritische Werte wie das Vapor Pressure Deficit (VPD) und den Daily Light Integral (DLI).
 
-## 🖼️ Impressionen
+Sichere Architektur: Strikte Trennung von sensiblem Code und Credentials (via .env). Die Datenbank läuft auf einer gehärteten SQLite-Instanz (WAL-Modus), die auf Langlebigkeit bei Dauerbetrieb (z. B. auf SD-Karten) ausgelegt ist.
 
-![Dashboard](docs/images/dashboard.png)
-*Modernes Dashboard mit Echtzeit-Metriken & Glassmorphism-Ästhetik*
+Systemanforderungen & Installation
 
-![Advisor](docs/images/advisor.png)
-*Wissenschaftlicher Ratgeber basierend auf botanischen Phasen*
-
----
-
-## 🚀 Schnelleinstieg
-
-### 1. Installation
-Stelle sicher, dass Python 3.10+ installiert ist. Installiere dann die Abhängigkeiten:
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Datenbank-Setup
-Initialisiere die wissenschaftliche Wissensbasis mit Standard-Parametern:
-
-```bash
-python3 setup_knowledge_db.py
-```
-
-### 3. Konfiguration
-Kopiere die Beispiel-Konfiguration und passe sie an:
-
-```bash
-cp config.json.example config.json
-```
-
-Erstelle eine `.env` Datei im Hauptverzeichnis für deine Zugangsdaten:
-
-```env
-TAPO_EMAIL=deine@email.de
-TAPO_PASSWORD=dein_passwort
-PLANT_EDIT_PASSWORD=growmate  # Passwort für kritische Änderungen
-```
-
-### 4. Starten & Demo-Modus
-Nutze das mitgelieferte Watchdog-Skript für maximale Stabilität:
-
-```bash
-./start.sh
-```
-
-**Ohne Sensoren testen?**
-Wenn du keine Hardware besitzt, kannst du den **Demo-Modus** aktivieren. Setze dazu in deiner `.env`:
-`GROW_DEMO_MODE=true`
-Das System generiert dann automatisch synthetische Daten für einen Test-Sensor und eine Test-Steckdose.
-
-Die App ist anschließend unter **http://localhost:5000** erreichbar.
-
----
-
-## 🛠️ Technologie-Stack (v1.3)
-- **Backend**: Flask (Python), APScheduler, Flask-Limiter
-- **AI / KI**: ONNX Runtime + MiniLM-L6-V2 (vollständig lokal, CPU-only)
-- **DB**: SQLite (Local-First)
-- **Frontend**: Vanilla JS (ES6+), Modern CSS (Custom Glassmorphism)
-- **Kommunikation**: Bleak (Bluetooth LE), Tapo PyP100
-
-### ONNX Model Setup (einmalig)
-Das ONNX-Modell muss einmalig heruntergeladen werden:
-```bash
-mkdir -p model
-# MiniLM-L6-V2 via optimum (empfohlen)
-pip install optimum[exporters]
-optimum-cli export onnx --model sentence-transformers/all-MiniLM-L6-v2 model/
-# Vektoren vorberechnen:
-python3 build_vectors.py
-```
-
----
-*Viel Erfolg bei deinem Grow!*
+Mache hier klar, dass das System durch seinen modularen Aufbau überall läuft – vom Raspberry Pi bis zum Windows ARM64-Server.
+Gib die genauen Befehle für die Einrichtung der virtuellen Umgebung an (python3 -m venv .venv, pip install -r requirements.txt).
+Erwähne fett, dass die .env.example in .env umbenannt und mit eigenen Zugangsdaten gefüllt werden muss.
