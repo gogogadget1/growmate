@@ -7,15 +7,54 @@ Sensible Daten werden ausschließlich aus der .env Datei geladen.
 import os
 import json
 import logging
+import sys
+import subprocess
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("GROWMATE_DB", os.path.join(BASE_DIR, "growmate.db"))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 ENV_PATH = os.path.join(BASE_DIR, ".env")
+PID_FILE = os.environ.get("GROWMATE_PID", os.path.join(BASE_DIR, "growmate.pid"))
 
 # Load environment variables from .env
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+def acquire_lock():
+    """Stellt sicher, dass nur eine Instanz der App (Prod/Dev) läuft."""
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    raise ValueError("PID file empty")
+                old_pid = int(content)
+            
+            # Prüfen, ob der Prozess wirklich noch läuft
+            if sys.platform == "win32":
+                check_cmd = ["tasklist", "/FI", f"PID eq {old_pid}", "/NH"]
+                output = subprocess.check_output(check_cmd, encoding='utf-8', stderr=subprocess.STDOUT)
+                if str(old_pid) in output:
+                    print(f"FATAL: GrowMate Instanz läuft bereits (PID {old_pid}). Abbruch.")
+                    sys.exit(1)
+            else:
+                try:
+                    os.kill(old_pid, 0)
+                    print(f"FATAL: GrowMate Instanz läuft bereits (PID {old_pid}). Abbruch.")
+                    sys.exit(1)
+                except OSError:
+                    pass # Prozess existiert nicht
+        except (ValueError, ProcessLookupError, subprocess.CalledProcessError, OSError):
+            # PID-Datei ist korrupt oder Prozess existiert nicht mehr -> Überschreiben
+            pass
+
+    # Eigene PID schreiben
+    try:
+        with open(PID_FILE, 'w') as f:
+            f.write(str(os.getpid()))
+    except IOError as e:
+        print(f"WARNUNG: Konnte PID-Datei nicht schreiben: {e}")
+
 
 DEFAULT_CONFIG = {
     "polling_interval_minutes": 5,

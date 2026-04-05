@@ -16,7 +16,7 @@ from flask import Flask, jsonify, request, render_template, send_from_directory,
 # Projektverzeichnis zum Path hinzufügen
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import load_config, save_config, get_tapo_credentials
+from config import load_config, save_config, get_tapo_credentials, acquire_lock
 from dotenv import load_dotenv
 
 # Load env vars early
@@ -947,6 +947,7 @@ def api_devices_update():
 
 def main():
     """Startet die GrowMate-Anwendung."""
+    acquire_lock()
     import getpass
 
     # Problem 1 – Fix: Benutzerpflicht konfigurierbar via .env

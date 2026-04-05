@@ -155,19 +155,34 @@ def poll_all_sensors():
         except Exception as e:
             logger.error(f"Fehler beim Tapo Polling: {e}")
 
-        # ─── Tapo Hubs (für Water Leak Sensors) ─────────────────────────
+        # ─── Tapo Hubs (und deren Child-Sensoren) ─────────────────────────
         hubs = [d for d in devices if d.get("type") == "tapo_hub"]
+        logger.info(f"Hub-Polling: {len(hubs)} Hubs gefunden.")
         if hubs and t_email and t_password:
             try:
+                logger.info(f"Starte Scan fuer Hubs: {[h.get('ip') for h in hubs]}")
                 hub_sensors = tapo_devices.scan_tapo_hubs_sync(t_email, t_password, hubs)
+                logger.info(f"Hub-Scan abgeschlossen. {len(hub_sensors)} Sensoren gefunden.")
+                
                 for s in hub_sensors:
+                    # Neuzuordnung: Name aus config.json bevorzugen, wenn device_id übereinstimmt
+                    device_id = s.get("raw_data", {}).get("device_id")
+                    sensor_name = s["sensor_name"]
+                    
+                    if device_id:
+                        for d in devices:
+                            if d.get("device_id") == device_id:
+                                sensor_name = d.get("name", sensor_name)
+                                break
+
                     database.add_sensor_reading(
-                        sensor_name=s["sensor_name"],
+                        sensor_name=sensor_name,
                         sensor_type=s["type"],
                         temperature=s.get("temperature"),
                         humidity=s.get("humidity"),
                         battery=s.get("battery")
                     )
+                    logger.info(f"Hub-Sensordaten gespeichert: {sensor_name}")
                     
                     # Check Automations
                     check_automations(s, cfg)
