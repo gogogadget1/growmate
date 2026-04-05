@@ -102,6 +102,8 @@ function renderTents(tents) {
     const grid = document.getElementById('tentGrid');
     if (!grid) return;
     
+    grid.innerHTML = ''; // Vor dem Rendern leeren
+    
     if (!tents || tents.length === 0) {
         grid.innerHTML = `<div class="dash-widget"><div class="empty-state">Keine Zelte konfiguriert.</div></div>`;
         return;
@@ -167,7 +169,7 @@ function renderTents(tents) {
                 </div>
                 
                 <div class="advisor-chip">
-                    ⚡ ${escapeHtml(tent.advisor_hint || 'Alles in Ordnung.')}
+                    ⚡ ${escapeHtml(tent.advisor_hint || 'System läuft normal.')}
                 </div>
             </div>
         `;
@@ -284,11 +286,7 @@ function renderJournal(entries) {
     const strip = document.getElementById('journalStrip');
     if (!strip) return;
     
-    if (!entries || entries.length === 0) {
-        strip.innerHTML = `<div style="color:var(--text-muted); padding:16px 40px;">Keine Einträge vorhanden.</div>`;
-        return;
-    }
-    
+    strip.innerHTML = ''; // Vor dem Rendern leeren
     let html = '';
     entries.forEach(e => {
         html += `
@@ -309,11 +307,7 @@ function renderAdvisorHints(hints) {
     const strip = document.getElementById('advisorStrip');
     if (!strip) return;
     
-    if (!hints || hints.length === 0) {
-        strip.innerHTML = `<div style="color:var(--text-muted); padding:16px 40px;">Keine Systemhinweise vorhanden.</div>`;
-        return;
-    }
-    
+    strip.innerHTML = ''; // Vor dem Rendern leeren
     let html = '';
     hints.forEach(h => {
         html += `
