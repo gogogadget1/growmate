@@ -10,7 +10,7 @@ import logging
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "growmate.db")
+DB_PATH = os.environ.get("GROWMATE_DB", os.path.join(BASE_DIR, "growmate.db"))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 

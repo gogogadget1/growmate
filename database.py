@@ -84,6 +84,11 @@ def init_db():
             title TEXT NOT NULL,
             content TEXT,
             plant_height_cm REAL,
+            plant_name TEXT DEFAULT 'Allgemein',
+            plant_phase TEXT,
+            health_status TEXT,
+            water_amount_ml REAL,
+            ph_value REAL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -129,6 +134,30 @@ def init_db():
     """)
 
     conn.commit()
+
+    # --- Self-Repair: Schema-Migration für bestehende Datenbanken ---
+    try:
+        # Fehlende Spalten in 'diary_entries' hinzufügen, falls Tabelle bereits existiert
+        cols = [
+            ("plant_name", "TEXT DEFAULT 'Allgemein'"),
+            ("plant_phase", "TEXT"),
+            ("health_status", "TEXT"),
+            ("water_amount_ml", "REAL"),
+            ("ph_value", "REAL")
+        ]
+        for col_name, col_type in cols:
+            try:
+                conn.execute(f"ALTER TABLE diary_entries ADD COLUMN {col_name} {col_type}")
+                logging.getLogger("growmate.db").info(f"Migration: Spalte {col_name} zu diary_entries hinzugefügt.")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    pass
+                else:
+                    raise
+        conn.commit()
+    except Exception as e:
+        logging.getLogger("growmate.db").error(f"Migration-Fehler: {e}")
+
     conn.close()
 
 

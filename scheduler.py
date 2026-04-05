@@ -23,6 +23,19 @@ import mock_data_system
 
 logger = logging.getLogger("growmate.scheduler")
 
+# ─── Hardware-Lock (Multi-Environment-Schutz) ──────────────────────────────
+# Wenn GROWMATE_HARDWARE_READONLY=true gesetzt ist (z.B. in der Dev .env),
+# werden ALLE Hardware-Zugriffe (BLE-Scan, Tapo-Polling) vollständig
+# übersprungen. Die Instanz darf nur aus ihrer eigenen DB lesen.
+# Prod-Instanz: Variable nicht gesetzt → Hardware-Zugriff aktiv.
+HARDWARE_READONLY = os.environ.get("GROWMATE_HARDWARE_READONLY", "false").lower() == "true"
+
+if HARDWARE_READONLY:
+    logger.warning(
+        "HARDWARE_READONLY-Modus aktiv: Alle BLE-Scans und Tapo-Netzwerkaufrufe "
+        "sind deaktiviert. Diese Instanz liest ausschließlich aus der lokalen DB."
+    )
+
 # Globale Variable für den APScheduler
 scheduler = BackgroundScheduler(daemon=True)
 _automation_state = {}  # Tracks previous state to only trigger actions once per state change
@@ -47,7 +60,26 @@ def poll_all_sensors():
     cfg = load_config()
     devices = cfg.get("devices", [])
     t_email, t_password = get_tapo_credentials()
-    
+
+    # ─── Hardware-Lock (Dev-Schutz) ─────────────────────────────────
+    # Wenn GROWMATE_HARDWARE_READONLY=true: Kein BLE-Scan, kein Tapo-Call.
+    # Die Instanz arbeitet ausschließlich mit ihrer lokalen DB (Snapshot
+    # oder Mock-Daten). Prod-DB und Hardware bleiben vollständig unberührt.
+    if HARDWARE_READONLY:
+        logger.info(
+            "HARDWARE_READONLY: Hardware-Polling übersprungen. "
+            "Nur DB-Lesezugriff und Alert-Check werden ausgeführt."
+        )
+        # Alert-Check läuft weiterhin – liest nur aus lokaler DB, kein Hardware-Touch
+        try:
+            current_readings = database.get_latest_sensor_readings()
+            alert_messages = alerts.check_thresholds(current_readings, cfg)
+            for msg in alert_messages:
+                alerts.send_webhook_alert(msg, webhook_url=cfg.get("alert_webhook_url"))
+        except Exception as e:
+            logger.error(f"HARDWARE_READONLY: Fehler beim Alert-Check: {e}")
+        return
+
     # ─── Demo Mode ──────────────────────────────────────────────────
     if os.environ.get("GROW_DEMO_MODE", "false").lower() == "true":
         mock_data_system.get_live_mock_data()
