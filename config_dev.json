@@ -1,0 +1,46 @@
+{
+  "polling_interval_minutes": 5,
+  "ble_scan_duration_seconds": 10,
+  "server_host": "127.0.0.1",
+  "server_port": 5001,
+  "devices": [
+    {
+      "name": "Luftbefeuchter (Steckdose 4)",
+      "type": "tapo_plug",
+      "ip": "192.168.178.76",
+      "mac": "",
+      "enabled": true
+    },
+    {
+      "name": "Sunlight (Steckdose 1)",
+      "type": "tapo_plug",
+      "ip": "192.168.178.74",
+      "mac": "",
+      "enabled": true,
+      "tent_id": "tent_1775044876506"
+    },
+    {
+      "name": "Tapo Smart Hub",
+      "type": "tapo_hub",
+      "ip": "192.168.178.69",
+      "mac": "",
+      "enabled": true
+    },
+    {
+      "name": "Hygrometer (Zelt)",
+      "type": "govee_ble",
+      "ip": "",
+      "mac": "",
+      "enabled": true
+    }
+  ],
+  "automations": [],
+  "tents": [
+    {
+      "id": "tent_1775044876506",
+      "name": "Letzter Durchgang",
+      "description": "Letzter Durchgang",
+      "icon": "��"
+    }
+  ]
+}

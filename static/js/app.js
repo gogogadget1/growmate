@@ -81,6 +81,27 @@ function showToast(message, type = 'info') {
     }, 4000);
 }
 
+// ─── Utilities ──────────────────────────────────────────────────────
+function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return "";
+    return String(unsafe)
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+function formatTimestamp(ts) {
+    if (!ts) return '—';
+    try {
+        const date = new Date(ts);
+        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return ts;
+    }
+}
+
 // ─── SPA Navigation ─────────────────────────────────────────────────
 
 function navigateTo(pageName) {

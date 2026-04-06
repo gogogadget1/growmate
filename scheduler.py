@@ -160,34 +160,54 @@ def poll_all_sensors():
         logger.info(f"Hub-Polling: {len(hubs)} Hubs gefunden.")
         if hubs and t_email and t_password:
             try:
-                logger.info(f"Starte Scan fuer Hubs: {[h.get('ip') for h in hubs]}")
+                logger.debug(f"Starte Bulk-Scan fuer Hubs: {[h.get('ip') for h in hubs]}")
                 hub_sensors = tapo_devices.scan_tapo_hubs_sync(t_email, t_password, hubs)
-                logger.info(f"Hub-Scan abgeschlossen. {len(hub_sensors)} Sensoren gefunden.")
                 
                 for s in hub_sensors:
-                    # Neuzuordnung: Name aus config.json bevorzugen, wenn device_id übereinstimmt
+                    # ID-Mapping: Name aus config.json bevorzugen
                     device_id = s.get("raw_data", {}).get("device_id")
                     sensor_name = s["sensor_name"]
                     
-                    if device_id:
-                        for d in devices:
-                            if d.get("device_id") == device_id:
-                                sensor_name = d.get("name", sensor_name)
-                                break
-
-                    database.add_sensor_reading(
-                        sensor_name=sensor_name,
-                        sensor_type=s["type"],
-                        temperature=s.get("temperature"),
-                        humidity=s.get("humidity"),
-                        battery=s.get("battery")
-                    )
-                    logger.info(f"Hub-Sensordaten gespeichert: {sensor_name}")
-                    
-                    # Check Automations
-                    check_automations(s, cfg)
+                    # Falls eine explizite Config existiert, wird diese hier NICHT doppelt gepollt,
+                    # sondern nur der Name übernommen falls er passt.
+                    # HINWEIS: Wir priorisieren jetzt aber das dedizierte Polling unten.
+                    pass 
             except Exception as e:
-                logger.error(f"Fehler beim Tapo Hub Polling: {e}")
+                logger.error(f"Fehler beim Tapo Hub Bulk-Polling: {e}")
+
+        # ─── Tapo Einzelsensoren (dediziertes Polling) ────────────────────
+        tapo_sensors = [d for d in devices if d.get("type") == "tapo_sensor" and d.get("enabled", True)]
+        if tapo_sensors and t_email and t_password:
+            for ts in tapo_sensors:
+                hub_ip = ts.get("parent_hub_ip")
+                device_id = ts.get("device_id")
+                if not hub_ip or not device_id:
+                    continue
+                
+                try:
+                    s_data = tapo_devices.get_hub_sensor_data(hub_ip, t_email, t_password, device_id)
+                    if s_data.get("success"):
+                        database.add_sensor_reading(
+                            sensor_name=ts.get("name"),
+                            sensor_type="tapo_sensor",
+                            temperature=s_data.get("temperature"),
+                            humidity=s_data.get("humidity"),
+                            battery=s_data.get("battery")
+                        )
+                        logger.info(f"Tapo-Sensor-Daten gespeichert: {ts.get('name')} ({s_data.get('temperature')}°C, {s_data.get('humidity')}%)")
+                        
+                        # Automatisierung prüfen
+                        # Wir simulieren hier das sensor_data Format für check_automations
+                        check_automations({
+                            "sensor_name": ts.get("name"),
+                            "is_leak": s_data.get("is_leak", False),
+                            "temperature": s_data.get("temperature"),
+                            "humidity": s_data.get("humidity")
+                        }, cfg)
+                    else:
+                        logger.warning(f"Tapo-Sensor {ts.get('name')} lieferte keine Daten: {s_data.get('error')}")
+                except Exception as e:
+                    logger.error(f"Konnte Tapo-Sensor {ts.get('name')} nicht pollen: {e}")
 
         # ─── NEU: Webhook Alerts ────────────────────────────────────────
         try:

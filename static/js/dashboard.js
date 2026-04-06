@@ -9,6 +9,20 @@ window.loadDashboard = async function() {
         if (res.success) {
             renderStatusBar(res);
             renderTents(res.tents);
+            
+            // Show unassigned devices if they exist
+            const unassignedCount = res.unassigned_count || 0;
+            if (unassignedCount > 0) {
+                const devRes = await API.get('/api/devices');
+                if (devRes.success) {
+                    const unassigned = devRes.data.filter(d => !d.tent_id);
+                    renderUnassignedDevices(unassigned);
+                }
+            } else {
+                const unSection = document.getElementById('unassignedSection');
+                if (unSection) unSection.style.display = 'none';
+            }
+
             renderEnergyWidget(res.energy);
             renderWarningsWidget(res.warnings);
             renderGrowthWidget(res.tents);
@@ -34,6 +48,7 @@ function renderStatusBar(data) {
     bar.style.padding = '24px 32px';
     
     const now = new Date();
+    const unassignedCount = data.unassigned_count || 0;
     
     bar.innerHTML = `
         <div class="tent-stat-block">
@@ -44,28 +59,28 @@ function renderStatusBar(data) {
         <div class="divider"></div>
         <div class="tent-stat-block">
             <span class="label">✅ STATUS</span>
-            <span class="value" style="font-size: 2.2rem;"><span style="color: ${isOk ? 'var(--text-primary)' : 'var(--warn-red)'}">${isOk ? data.tents.length : data.warnings.length}</span> <span style="font-size:0.9rem; color:var(--text-muted)">${isOk ? 'Online' : 'Fehler'}</span></span>
+            <span class="value" style="font-size: 2.2rem;"><span style="color: ${isOk ? 'var(--text-primary)' : 'var(--warn-red)'}">${data.tents.length}</span> <span style="font-size:0.9rem; color:var(--text-muted)">Zelte</span></span>
             <div class="ratio-bar" style="height: 4px; background: rgba(255,255,255,0.1); margin-top: 8px; border-radius: 2px;">
                 <div class="online" style="width:${isOk ? '100%' : '50%'}; background: ${isOk ? 'var(--accent-bio)' : 'var(--warn-red)'}; height: 100%; border-radius: 2px;"></div>
             </div>
         </div>
         <div class="divider"></div>
         <div class="tent-stat-block">
-            <span class="label" style="color: ${!isOk ? 'var(--warn-amber)' : 'var(--text-muted)'}">${!isOk ? '⚠️ WARNUNGEN' : '⚠️ WARNUNGEN'}</span>
-            <span class="value" style="color: ${data.warnings.length > 0 ? 'var(--warn-red)' : 'var(--warn-amber)'}">${data.warnings.length}</span>
-            <span class="sub">${data.warnings.length > 0 ? 'Aktive Warnungen' : 'Alles OK'}</span>
+            <span class="label">🔌 GERÄTE</span>
+            <span class="value" style="color: ${unassignedCount > 0 ? 'var(--warn-amber)' : 'inherit'}">${unassignedCount}</span>
+            <span class="sub">${unassignedCount > 0 ? '<span style="color:var(--warn-amber)">Nicht zugewiesen</span>' : 'Zugewiesen'}</span>
         </div>
         <div class="divider"></div>
         <div class="tent-stat-block">
-            <span class="label">🏕️ ZELTE</span>
-            <span class="value">${data.tents.length}</span>
-            <span class="sub">${data.tents.filter(t => t.light.is_on).length} Licht aktiv</span>
+            <span class="label">⚠️ WARNUNGEN</span>
+            <span class="value" style="color: ${data.warnings.length > 0 ? 'var(--warn-red)' : 'var(--text-muted)'}">${data.warnings.length}</span>
+            <span class="sub">${data.warnings.length > 0 ? 'Aktive Fehler' : 'Alles OK'}</span>
         </div>
         <div class="divider"></div>
         <div class="tent-stat-block">
-            <span class="label">🔄 LETZTES UPDATE</span>
+            <span class="label"> Letztes Update</span>
             <span class="value" style="font-size: 1.1rem">${now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})}</span>
-            <span class="sub" style="display:flex; align-items:center; gap:4px;"><span class="status-dot" style="position:static; width:6px; height:6px; background:var(--accent-bio); border-radius:50%;"></span> Polling aktiv</span>
+            <span class="sub" style="display:flex; align-items:center; gap:4px;"><span class="status-dot" style="position:static; width:6px; height:6px; background:var(--accent-bio); border-radius:50%;"></span> Synchron</span>
         </div>
     `;
 }
@@ -183,6 +198,37 @@ function renderTents(tents) {
             drawSparkline(`sparkline-${tent.id}`, tent.id);
         });
     }, 100);
+}
+
+function renderUnassignedDevices(devices) {
+    const grid = document.getElementById('unassignedSection');
+    const container = document.getElementById('unassignedGrid');
+    if (!grid || !container) return;
+    
+    if (!devices || devices.length === 0) {
+        grid.style.display = 'none';
+        return;
+    }
+    
+    grid.style.display = 'block';
+    container.innerHTML = devices.map(d => {
+        const isOnline = d.online !== false;
+        const icon = d.category === 'sensor' ? '🌡️' : '🔌';
+        const val = d.power_w ? `${d.power_w.toFixed(1)}W` : (d.temperature ? `${d.temperature.toFixed(1)}°C` : 'Bereit');
+        
+        return `
+            <div class="glass mini-card" style="padding: 12px; display:flex; align-items:center; gap:12px; min-width:180px;">
+                <span style="font-size:1.2rem;">${icon}</span>
+                <div style="flex:1; overflow:hidden;">
+                    <div style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(d.name)}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+                        <span>${escapeHtml(d.type)}</span>
+                        <span style="color:${isOnline ? 'var(--accent-bio)' : 'var(--warn-red)'}">${val}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function drawSparkline(canvasId, tentId) {

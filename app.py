@@ -58,7 +58,7 @@ class MockLimiter:
 
 # ─── App Setup ──────────────────────────────────────────────────────
 
-VERSION = "1.2"
+VERSION = "2.1.2"
 app = Flask(__name__,
             static_folder="static",
             template_folder="templates")
@@ -278,9 +278,13 @@ def api_dashboard():
     # Wir begrenzen das flache Array auf 10 Einträge insgesamt
     advisor_hints = advisor_hints[:10]
 
+    # Unassigned Devices for status check
+    unassigned_devices = [d.get("name") for d in devices if not d.get("tent_id")]
+
     return jsonify({
         "success": True,
         "tents": dashboard_tents,
+        "unassigned_count": len(unassigned_devices),
         "energy": {
             "watts_now": round(total_watts, 1),
             "kwh_today": round(total_kwh_today, 2)
@@ -310,6 +314,28 @@ def api_sensors_history():
         hours = 24
     data = get_sensor_history(sensor_name=sensor_name, hours=hours)
     return jsonify({"success": True, "data": data})
+
+
+@app.route("/api/history")
+def api_history_consolidated():
+    """Sammel-Endpunkt für alle historischen Daten (Sensoren, Energie, Tagebuch)."""
+    try:
+        hours = int(request.args.get("hours", 24))
+    except (ValueError, TypeError):
+        hours = 24
+        
+    sensors = get_sensor_history(hours=hours)
+    energy = get_energy_history(hours=hours)
+    heights = get_plant_height_history() # Tagebuch-Einträge sind meist seltener, daher alle
+    
+    return jsonify({
+        "success": True,
+        "data": {
+            "sensors": sensors,
+            "energy": energy,
+            "heights": heights
+        }
+    })
 
 
 # ─── API: Energie-Daten ─────────────────────────────────────────────

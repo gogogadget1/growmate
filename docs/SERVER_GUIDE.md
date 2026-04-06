@@ -79,3 +79,28 @@ powershell -Command "Get-Content C:\Users\homes\Documents\growmate\local.log -Wa
 
 ### Database Health
 The system uses SQLite in WAL (Write-Ahead Logging) mode. Before manually copying the database, always use `db-sync` to ensure all data is flushed from the `-wal` file into the main `.db` file.
+
+---
+
+## 📦 Manual Data Migration (Local to Server)
+
+If you need to restore your local `growmate.db` (diary data) to the Production server, follow this **Safe Protocol** to avoid file-lock errors:
+
+1. **Stop Production**: 
+   ```powershell
+   cd C:\Users\homes\Documents\growmate
+   .\gm_control.ps1 stop
+   ```
+2. **Verify Stop**: 
+   ```powershell
+   .\gm_control.ps1 status
+   ```
+   *Ensure it says "No process found".*
+3. **Execute SCP** (from your Linux terminal):
+   ```bash
+   scp growmate.db homes@192.168.178.97:C:/Users/homes/Documents/growmate/growmate.db
+   ```
+4. **Restart**: 
+   ```powershell
+   .\gm_control.ps1 start
+   ```

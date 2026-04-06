@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/hero_banner.png" alt="GrowMate Banner" width="100%">
 
-  # 🌱 GrowMate v2.1
+  # 🌱 GrowMate v2.1.2
   *Autarkes Botanik-Monitoring & Edge-AI System*
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -69,7 +69,7 @@ Dank des strikt modularen Aufbaus in Python und Flask läuft GrowMate plattformu
 
 ### 1. Repository Klonen
 ```bash
-git clone -b growmate-v2.1 https://github.com/gogogadget1/growmate.git
+git clone -b growmate-v2.1.2 https://github.com/gogogadget1/growmate.git
 cd growmate
 ```
 

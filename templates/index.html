@@ -556,6 +556,12 @@
               <!-- dynamisch per JS gefüllt -->
             </div>
 
+            <!-- Unassigned Devices Strip -->
+            <div id="unassignedSection" style="display:none; margin: 32px 40px;">
+                <h3 style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:16px;">🔌 Nicht zugeordnete Geräte</h3>
+                <div id="unassignedGrid" style="display:flex; gap:16px; overflow-x:auto; padding-bottom:12px; scrollbar-width: thin;"></div>
+            </div>
+
             <!-- SECONDARY ROW -->
             <div class="dash-secondary-grid">
               <div class="dash-widget" id="widget-energy">...</div>
@@ -1061,31 +1067,95 @@
         // 5. Build combined Analyse Chart logic wrapper
         // The HTML uses id "main-analyse-chart"
         let mainChart;
-        function renderCombinedAnalyseChart() {
-            const tempCanvas = document.getElementById('chart-temp-history');
-            const humCanvas = document.getElementById('chart-hum-history');
-            const eneCanvas = document.getElementById('chart-energy-history');
-            const heiCanvas = document.getElementById('chart-plant-height');
-            
-            // Extract datasets from the hidden charts created by charts.js
+        async function renderCombinedAnalyseChart() {
+            const range = document.getElementById('history-timerange')?.value || 24;
+            const res = await API.get(`/api/history?hours=${range}`);
+            if (!res.success || !res.data) {
+                console.error("Failed to load history for combined chart");
+                return;
+            }
+
+            const { sensors, energy, heights } = res.data;
             const datasets = [];
-            const getDS = (c, type, color, id) => {
-                if(window.charts && window.charts[c.id]) {
-                    const ds = window.charts[c.id].data.datasets;
-                    ds.forEach(d => {
-                        datasets.push({
-                            label: type + ' ' + d.label,
-                            data: d.data,
-                            borderColor: color, backgroundColor: color+'15', fill: true, tension: 0.3,
-                            yAxisID: id, _tag: id
-                        });
+
+            // Helper to generate randomish consistent colors
+            const getColor = (i) => ['#ff7043', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#e91e63'][i % 6];
+
+            // Sensors (Temp/Hum)
+            const sensorMap = {};
+            if (sensors && Array.isArray(sensors)) {
+                sensors.forEach(r => {
+                    if(!sensorMap[r.sensor_name]) sensorMap[r.sensor_name] = [];
+                    sensorMap[r.sensor_name].push(r);
+                });
+            }
+            
+            Object.keys(sensorMap).forEach((name, i) => {
+                const color = getColor(i);
+                const tempData = sensorMap[name].map(r => ({ 
+                    x: new Date(r.timestamp.replace(' ', 'T')), 
+                    y: parseFloat(r.temperature) 
+                })).filter(p => !isNaN(p.y));
+                
+                if (tempData.length > 0) {
+                    datasets.push({
+                        label: `🌡️ ${name} (T)`,
+                        data: tempData,
+                        borderColor: color, backgroundColor: color+'15', fill: true, tension: 0.3,
+                        yAxisID: 'y-temp', _tag: 'y-temp', spanGaps: true
                     });
                 }
-            };
-            getDS(tempCanvas, 'Temp', '#ff7043', 'y-temp');
-            getDS(humCanvas, 'Feuchte', '#42a5f5', 'y-hum');
-            getDS(eneCanvas, 'Energie', '#ffa726', 'y-power');
-            getDS(heiCanvas, 'Höhe', '#ab47bc', 'y-height');
+
+                const humData = sensorMap[name].map(r => ({ 
+                    x: new Date(r.timestamp.replace(' ', 'T')), 
+                    y: parseFloat(r.humidity) 
+                })).filter(p => !isNaN(p.y));
+                
+                if (humData.length > 0) {
+                    datasets.push({
+                        label: `💧 ${name} (H)`,
+                        data: humData,
+                        borderColor: '#42a5f5', backgroundColor: '#42a5f515', fill: true, tension: 0.3,
+                        yAxisID: 'y-hum', _tag: 'y-hum', hidden: true, spanGaps: true
+                    });
+                }
+            });
+
+            // Energy
+            const energyMap = {};
+            if (energy && Array.isArray(energy)) {
+                energy.forEach(r => {
+                    if(!energyMap[r.device_name]) energyMap[r.device_name] = [];
+                    energyMap[r.device_name].push(r);
+                });
+            }
+            
+            Object.keys(energyMap).forEach((name, i) => {
+                datasets.push({
+                    label: `⚡ ${name}`,
+                    data: energyMap[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.power_w) })),
+                    borderColor: '#ffa726', backgroundColor: '#ffa72615', fill: true, tension: 0.3,
+                    yAxisID: 'y-power', _tag: 'y-power', hidden: true, spanGaps: true
+                });
+            });
+
+            // Heights
+            const plantMap = {};
+            if (heights && Array.isArray(heights)) {
+                heights.forEach(r => {
+                    if(!plantMap[r.plant_name]) plantMap[r.plant_name] = [];
+                    plantMap[r.plant_name].push({ x: new Date(r.entry_date + 'T12:00:00'), y: parseFloat(r.plant_height_cm) });
+                });
+            }
+            
+            Object.keys(plantMap).forEach((name, i) => {
+                datasets.push({
+                    label: `🪴 ${name}`,
+                    data: plantMap[name],
+                    borderColor: '#ab47bc', backgroundColor: '#ab47bc15', fill: true, tension: 0.3,
+                    yAxisID: 'y-height', _tag: 'y-height', hidden: true, spanGaps: true
+                });
+            });
 
             const ctx = document.getElementById('main-analyse-chart');
             if(!ctx) return;
@@ -1097,8 +1167,8 @@
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: { type: 'time', time: { displayFormats: {hour:'HH:mm', day:'dd.MM'} }, grid:{color:'rgba(45,255,126,0.06)'}},
-                        'y-temp': { type: 'linear', position: 'left', display: true, title: {display:true,text:'°C',color:'rgba(255,255,255,0.4)'} },
-                        'y-hum': { type: 'linear', position: 'right', display: true, title:{display:true,text:'%',color:'rgba(255,255,255,0.4)'}, min:0, max:100 },
+                        'y-temp': { type: 'linear', position: 'left', display: true, suggestedMin: 15, suggestedMax: 35, title: {display:true,text:'°C',color:'rgba(255,255,255,0.4)'} },
+                        'y-hum': { type: 'linear', position: 'right', display: false, title:{display:true,text:'%',color:'rgba(255,255,255,0.4)'}, min:0, max:100 },
                         'y-power': { type: 'linear', position: 'right', display: false, title:{display:true,text:'W'} },
                         'y-height': { type: 'linear', position: 'right', display: false, title:{display:true,text:'cm'} },
                     },

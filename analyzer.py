@@ -44,8 +44,9 @@ BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
 VECTORS_PATH    = os.path.join(BASE_DIR, "knowledge_vectors.json")
 MODEL_PATH      = os.path.join(BASE_DIR, "model", "model.onnx")
 TOKENIZER_PATH  = os.path.join(BASE_DIR, "model", "tokenizer.json")
+CUSTOM_KNOWLEDGE_PATH = os.path.join(BASE_DIR, "custom_knowledge.json")
 
-KNOWLEDGE_VERSION = "3.0"
+KNOWLEDGE_VERSION = "3.1"
 
 # ─── Analyse-Cache ────────────────────────────────────────────────────────────
 # Verhindert ONNX-Queries bei jedem Frontend-Poll. TTL: 60s. Thread-safe.
@@ -212,6 +213,32 @@ def _load_knowledge_vectors() -> bool:
         log.error(f"Fehler beim Laden von knowledge_vectors.json: {exc}  →  Fallback aktiv.")
         _kv_loaded = True
         return False
+
+
+def _check_and_merge_custom_knowledge():
+    """
+    Prüft ob custom_knowledge.json existiert und fügt neue Tipps zur PLANT_KNOWLEDGE hinzu.
+    Diese Funktion sollte vor der Vektorisierung in build_vectors.py gerufen werden,
+    oder wir nutzen sie für den On-The-Fly-Vergleich (derzeit simpler: build_vectors.py).
+    """
+    if not os.path.exists(CUSTOM_KNOWLEDGE_PATH):
+        return
+
+    try:
+        with open(CUSTOM_KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+            custom_data = json.load(f)
+            
+        added = 0
+        for entry in custom_data:
+            # Erwartetes Format: [ "keywords", {metadata} ]
+            if isinstance(entry, list) and len(entry) == 2:
+                PLANT_KNOWLEDGE.append(tuple(entry))
+                added += 1
+        
+        if added > 0:
+            log.info(f"Custom Knowledge: {added} Einträge geladen.")
+    except Exception as e:
+        log.error(f"Fehler beim Laden von custom_knowledge.json: {e}")
 
 
 def _embed_query(text: str) -> np.ndarray | None:

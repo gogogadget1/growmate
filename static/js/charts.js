@@ -166,22 +166,22 @@ async function loadDashboardCharts() {
 
 async function loadHistoryCharts() {
     const hours = parseInt(document.getElementById('history-timerange').value) || 24;
-
-    await Promise.all([
-        loadTempHistory(hours),
-        loadHumHistory(hours),
-        loadEnergyHistory(hours),
-        loadPlantHeightChart(),
-    ]);
-}
-
-async function loadTempHistory(hours) {
-    const res = await API.get(`/api/sensors/history?hours=${hours}`);
+    const res = await API.get(`/api/history?hours=${hours}`);
     if (!res.success || !res.data) return;
 
-    const sensors = groupBySensor(res.data);
+    const { sensors, energy, heights } = res.data;
+
+    renderTempHistory(sensors);
+    renderHumHistory(sensors);
+    renderEnergyHistory(energy);
+    renderPlantHeightChart(heights);
+}
+
+function renderTempHistory(data) {
+    if (!data) return;
+    const sensors = groupBySensor(data);
     const sensorNames = Object.keys(sensors);
-    const colors = ['#ff7043', '#e53935', '#ff8a65', '#d84315', '#bf360c'];
+    const colors = ['#f44336', '#ff9800', '#ffc107', '#ff5722', '#795548'];
 
     createOrUpdateChart('chart-temp-history', {
         type: 'line',
@@ -190,12 +190,11 @@ async function loadTempHistory(hours) {
                 label: name,
                 data: sensors[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.temperature) || 0 })),
                 borderColor: colors[i % colors.length],
-                backgroundColor: colors[i % colors.length] + '10',
+                backgroundColor: colors[i % colors.length] + '20',
                 fill: true,
-                tension: 0.3,
-                pointRadius: 1,
-                pointHoverRadius: 5,
-                borderWidth: 2,
+                tension: 0.4,
+                pointRadius: 2,
+                borderWidth: 3,
             })),
         },
         options: {
@@ -211,13 +210,11 @@ async function loadTempHistory(hours) {
     });
 }
 
-async function loadHumHistory(hours) {
-    const res = await API.get(`/api/sensors/history?hours=${hours}`);
-    if (!res.success || !res.data) return;
-
-    const sensors = groupBySensor(res.data);
+function renderHumHistory(data) {
+    if (!data) return;
+    const sensors = groupBySensor(data);
     const sensorNames = Object.keys(sensors);
-    const colors = ['#42a5f5', '#1e88e5', '#64b5f6', '#1565c0', '#0d47a1'];
+    const colors = ['#2196f3', '#03a9f4', '#00bcd4', '#3f51b5', '#673ab7'];
 
     createOrUpdateChart('chart-hum-history', {
         type: 'line',
@@ -226,12 +223,11 @@ async function loadHumHistory(hours) {
                 label: name,
                 data: sensors[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.humidity) || 0 })),
                 borderColor: colors[i % colors.length],
-                backgroundColor: colors[i % colors.length] + '10',
+                backgroundColor: colors[i % colors.length] + '20',
                 fill: true,
-                tension: 0.3,
-                pointRadius: 1,
-                pointHoverRadius: 5,
-                borderWidth: 2,
+                tension: 0.4,
+                pointRadius: 2,
+                borderWidth: 3,
             })),
         },
         options: {
@@ -249,18 +245,16 @@ async function loadHumHistory(hours) {
     });
 }
 
-async function loadEnergyHistory(hours) {
-    const res = await API.get(`/api/energy/history?hours=${hours}`);
-    if (!res.success || !res.data) return;
-
+function renderEnergyHistory(data) {
+    if (!data) return;
     const devices = {};
-    res.data.forEach(r => {
+    data.forEach(r => {
         if (!devices[r.device_name]) devices[r.device_name] = [];
         devices[r.device_name].push(r);
     });
 
     const deviceNames = Object.keys(devices);
-    const colors = ['#ffa726', '#ff9800', '#ffb74d', '#f57c00', '#e65100'];
+    const colors = ['#4caf50', '#8bc34a', '#cddc39', '#2e7d32', '#33691e'];
 
     createOrUpdateChart('chart-energy-history', {
         type: 'line',
@@ -269,12 +263,11 @@ async function loadEnergyHistory(hours) {
                 label: name,
                 data: devices[name].map(r => ({ x: new Date(r.timestamp), y: parseFloat(r.power_w) || 0 })),
                 borderColor: colors[i % colors.length],
-                backgroundColor: colors[i % colors.length] + '10',
+                backgroundColor: colors[i % colors.length] + '20',
                 fill: true,
-                tension: 0.3,
-                pointRadius: 1,
-                pointHoverRadius: 5,
-                borderWidth: 2,
+                tension: 0.4,
+                pointRadius: 2,
+                borderWidth: 3,
             })),
         },
         options: {
@@ -291,10 +284,8 @@ async function loadEnergyHistory(hours) {
     });
 }
 
-async function loadPlantHeightChart() {
-    const res = await API.get('/api/diary/heights');
-    if (!res.success || !res.data || res.data.length === 0) {
-        // Leeres Chart oder Hinweis anzeigen
+function renderPlantHeightChart(data) {
+    if (!data || data.length === 0) {
         createOrUpdateChart('chart-plant-height', {
             type: 'line',
             data: { datasets: [] },

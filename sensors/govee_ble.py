@@ -4,6 +4,7 @@ Scannt nach Govee Bluetooth Low Energy Sensoren und parsed die Advertisement-Dat
 Unterstützte Modelle: H5075, H5074, H5179, H5072, H5102
 """
 
+import os
 import asyncio
 import struct
 import logging
@@ -11,6 +12,9 @@ from datetime import datetime
 from typing import List, Dict, Any, cast, Optional
 
 logger = logging.getLogger("growmate.govee")
+
+# ─── Hardware-Lock (Dev-Schutz) ─────────────────────────────────
+HARDWARE_READONLY = os.environ.get("GROWMATE_HARDWARE_READONLY", "false").lower() == "true"
 
 # Govee Hersteller-IDs und Modellnamen
 GOVEE_COMPANY_IDS = {0xEC88, 0x0001}  # Bekannte Govee Company IDs
@@ -99,14 +103,10 @@ def parse_govee_advertisement(device, advertisement_data):
 async def scan_govee_sensors(duration=10):
     """
     Scannt nach Govee BLE Sensoren für die angegebene Dauer.
-    Gibt eine Liste von gefundenen Sensordaten zurück.
-
-    Args:
-        duration: Scan-Dauer in Sekunden (Standard: 10)
-
-    Returns:
-        Liste von Dictionaries mit Sensordaten
     """
+    if HARDWARE_READONLY:
+        logger.info("HARDWARE_READONLY: BLE-Scan übersprungen.")
+        return []
     try:
         from bleak import BleakScanner
     except ImportError:

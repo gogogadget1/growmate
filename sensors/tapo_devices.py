@@ -3,6 +3,7 @@ GrowMate – Tapo Geräte-Steuerung
 Steckdosen ein-/ausschalten und Energieverbrauch auslesen über PyP100.
 """
 
+import os
 import logging
 from datetime import datetime
 import asyncio
@@ -12,9 +13,18 @@ import config
 
 logger = logging.getLogger("growmate.tapo")
 
+# ─── Hardware-Lock (Dev-Schutz) ─────────────────────────────────
+# Wenn GROWMATE_HARDWARE_READONLY=true gesetzt ist, werden ALLE
+# Netzwerkzugriffe auf Tapo-Geräte blockiert.
+HARDWARE_READONLY = os.environ.get("GROWMATE_HARDWARE_READONLY", "false").lower() == "true"
+
+def _hardware_blocked():
+    return {"success": False, "error": "HARDWARE_READONLY Mode active. Outgoing connection blocked."}
+
 
 def get_plug_status(ip, tapo_email, tapo_password):
     """Holt Status einer P100/P110 Steckdose via tapo"""
+    if HARDWARE_READONLY: return _hardware_blocked()
     async def _async_get_plug_status():
         try:
             client = ApiClient(tapo_email, tapo_password)
@@ -53,6 +63,7 @@ def get_plug_status(ip, tapo_email, tapo_password):
 
 async def test_tapo_credentials_async(email, password, ip=None):
     """Testet die Tapo Zugangsdaten asynchron via tapo library"""
+    if HARDWARE_READONLY: return _hardware_blocked()
     try:
         client = ApiClient(email, password)
         if ip:
@@ -72,6 +83,7 @@ async def scan_tapo_hubs_async(email, password, hubs):
     Scans Tapo Hubs (zum Beispiel H100) and retrieves data for connected sensors
     like the T300 Water Leak Sensor.
     """
+    if HARDWARE_READONLY: return []
     results = []
     client = ApiClient(email, password)
     
@@ -124,6 +136,45 @@ def scan_tapo_hubs_sync(email, password, hubs):
     if not email or not password or not hubs:
         return []
     return _run_async(scan_tapo_hubs_async(email, password, hubs))
+
+
+async def get_hub_sensor_data_async(ip, email, password, child_id):
+    """Holt Daten eines bestimmten Child-Sensors von einem Hub."""
+    try:
+        client = ApiClient(email, password)
+        hub = await client.h100(ip)
+        child_devices = await hub.get_child_device_list()
+        
+        for child in child_devices:
+            if child.device_id == child_id:
+                child_info = child.to_dict()
+                category = child_info.get("category", "")
+                
+                res = {
+                    "success": True,
+                    "device_id": child_id,
+                    "nickname": child_info.get("nickname"),
+                    "online": child_info.get("status") == "online",
+                    "battery": child_info.get("battery_percentage"),
+                }
+                
+                # Model-Checking falls Kategorie vage ist
+                model = child_info.get("model", "")
+                
+                if "temp" in category or "T31" in model:
+                    res["temperature"] = child_info.get("current_temp")
+                    res["humidity"] = child_info.get("current_humidity")
+                elif "water-leak" in category or "T300" in model:
+                    res["is_leak"] = child_info.get("water_leak_status") != "water_dry"
+                    
+                return res
+        return {"success": False, "error": f"Child-ID {child_id} nicht auf Hub {ip} gefunden."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_hub_sensor_data(ip, email, password, child_id):
+    """Synchroner Wrapper für gezieltes Hub-Sensor-Polling."""
+    return _run_async(get_hub_sensor_data_async(ip, email, password, child_id))
 
 
 async def _get_device_async(ip: str, email: str, password: str) -> Tuple[Any, Optional[str]]:
@@ -187,6 +238,7 @@ async def _turn_on_async(ip, email, password):
     return {"success": False, "message": "Verbindung fehlgeschlagen"}
 
 def turn_on(ip, email, password):
+    if HARDWARE_READONLY: return _hardware_blocked()
     return _run_async(_turn_on_async(ip, email, password))
 
 
@@ -204,6 +256,7 @@ async def _turn_off_async(ip, email, password):
     return {"success": False, "message": "Verbindung fehlgeschlagen"}
 
 def turn_off(ip, email, password):
+    if HARDWARE_READONLY: return _hardware_blocked()
     return _run_async(_turn_off_async(ip, email, password))
 
 
@@ -231,6 +284,7 @@ async def _get_device_info_async(ip, email, password):
     return {"success": False, "message": "Verbindung fehlgeschlagen"}
 
 def get_device_info(ip, email, password):
+    if HARDWARE_READONLY: return _hardware_blocked()
     return _run_async(_get_device_info_async(ip, email, password))
 
 
@@ -254,11 +308,13 @@ async def _get_energy_usage_async(ip, email, password):
     return {"success": False, "message": "P110 Funktion oder Verbindung fehlgeschlagen"}
 
 def get_energy_usage(ip, email, password):
+    if HARDWARE_READONLY: return _hardware_blocked()
     return _run_async(_get_energy_usage_async(ip, email, password))
 
 
 def toggle_device(ip, email, password):
     """Schaltet eine Steckdose um (toggle)."""
+    if HARDWARE_READONLY: return _hardware_blocked()
     info = get_device_info(ip, email, password)
     if info and info.get("success"):
         if info.get("device_on"):
